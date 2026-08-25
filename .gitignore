@@ -15,3 +15,7 @@ __pycache__/
 iso_root/sources/
 iso_root/docs/
 iso_root/media/
+
+# The 168 MB ISO exceeds GitHub's 100 MB per-file limit, so it is NOT committed.
+# The compressed ZIP (which contains the ISO) is committed instead.
+dist/LinuxOSZero-v1.0.0-x86_64.iso

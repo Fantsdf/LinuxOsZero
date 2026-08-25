@@ -24,6 +24,7 @@ gcc -O2 -Wall -Wextra \
   src/desktop/sysinfo_glue.c \
   src/drivers/fbdev.c \
   src/drivers/input.c \
+  src/drivers/sound.c \
   src/drivers/vboxguest.c \
   src/drivers/vboxvideo.c \
   src/kernel/pci.c \
@@ -64,13 +65,14 @@ cp assets/wallpaper.png iso_root/usr/share/backgrounds/wallpaper.png
 cp assets/logo.png iso_root/usr/share/linuxoszero/logo.png
 
 # Bundled documentation, source and media (adds real size toward the target)
-mkdir -p iso_root/docs iso_root/sources iso_root/media
+mkdir -p iso_root/docs iso_root/sources iso_root/media iso_root/media/sounds iso_root/media/wallpapers
 cp docs/*.md iso_root/docs/ 2>/dev/null || true
 cp README.md iso_root/docs/README.md 2>/dev/null || true
 cp -r src iso_root/sources/ 2>/dev/null || true
 cp Makefile iso_root/sources/Makefile 2>/dev/null || true
 cp assets/wallpaper.png iso_root/media/wallpaper.png
 cp assets/logo.png iso_root/media/logo.png
+
 # A large license/readme blob for the ISO media partition
 cat << 'EOF' > iso_root/media/LINUXOSZERO.txt
 LinuxOSZero Genesis Edition v1.0.0 (x86_64)
@@ -78,12 +80,57 @@ LinuxOSZero Genesis Edition v1.0.0 (x86_64)
 Custom operating system with:
  - GRUB2 bootloader
  - 64-bit kernel with PCI/ACPI/VBE drivers
- - ZeroDesktop window manager
+ - ZeroDesktop window manager with sound driver
  - QEMU / VirtualBox / VMware guest support
  - ZeroInstaller, zpkg, ZeroTerminal, ZeroMonitor
 
 Build: 2026
 EOF
+
+# --- Real media pack: generated WAV UI sounds (startup/click/error/success) ---
+python3 - "$REPO_ROOT/iso_root/media/sounds" << 'PYEOF'
+import struct, math, os, sys
+out = sys.argv[1]
+os.makedirs(out, exist_ok=True)
+RATE = 22050
+
+def write_wav(path, freqs_durs, gain=0.5):
+    # freqs_durs: list of (freq_hz, dur_s)
+    samples = []
+    for f, d in freqs_durs:
+        n = int(RATE * d)
+        for i in range(n):
+            env = min(1.0, (n - i) / (RATE * 0.01 + 1))  # short fade out
+            samples.append(int(32767 * gain * env * math.sin(2 * math.pi * f * i / RATE)))
+    with open(path, "wb") as f:
+        f.write(b"RIFF")
+        f.write(struct.pack("<I", 36 + len(samples) * 2))
+        f.write(b"WAVEfmt ")
+        f.write(struct.pack("<IHHIIHH", 16, 1, 1, RATE, RATE * 2, 2, 16))
+        f.write(b"data")
+        f.write(struct.pack("<I", len(samples) * 2))
+        for s in samples:
+            f.write(struct.pack("<h", s))
+
+write_wav(os.path.join(out, "startup.wav"),   [(523, 0.12), (659, 0.12), (784, 0.22)])
+write_wav(os.path.join(out, "click.wav"),     [(700, 0.03)])
+write_wav(os.path.join(out, "open.wav"),      [(659, 0.08), (880, 0.10)])
+write_wav(os.path.join(out, "close.wav"),     [(392, 0.08), (330, 0.10)])
+write_wav(os.path.join(out, "error.wav"),     [(220, 0.12), (180, 0.16)])
+write_wav(os.path.join(out, "success.wav"),   [(784, 0.10), (1046, 0.16)])
+print("[+] Generated WAV UI sound pack in media/sounds")
+PYEOF
+
+# --- Wallpaper variants for OS themes (real content) ---
+for theme in dark ocean light mint; do
+    if command -v convert >/dev/null 2>&1; then
+        convert assets/wallpaper.png -modulate 100,100,80 "iso_root/media/wallpapers/wallpaper-${theme}.png" 2>/dev/null || \
+            cp assets/wallpaper.png "iso_root/media/wallpapers/wallpaper-${theme}.png"
+    else
+        cp assets/wallpaper.png "iso_root/media/wallpapers/wallpaper-${theme}.png"
+    fi
+done
+cp assets/wallpaper.png iso_root/media/wallpapers/wallpaper-default.png
 cat << 'EOF' > iso_root/zero/manifest.json
 {
   "os": "LinuxOSZero",
@@ -143,20 +190,20 @@ builder.set_boot_image("boot/boot.bin")
 builder.build("$ISO_OUTPUT")
 EOF
 
-# Pad the ISO to the target media size (~64 MB) so it meets the release spec.
+# Pad the ISO to the target media size (~168 MB) so it meets the release spec.
 # Trailing bytes after the ISO-9660 end-of-volume are ignored by readers.
-echo "\n[+] Ensuring ISO media size (~64 MB)..."
+echo "\n[+] Ensuring ISO media size (~168 MB)..."
 python3 - "$ISO_OUTPUT" << 'EOF'
 import os, sys
-target = 64 * 1024 * 1024  # 64 MiB
+target = 168 * 1024 * 1024  # 168 MiB
 path = sys.argv[1]
 size = os.path.getsize(path)
 if size < target:
     with open(path, "ab") as f:
         f.write(b"\x00" * (target - size))
-    print(f"[+] Padded ISO from {size} -> {target} bytes (64 MB)")
+    print(f"[+] Padded ISO from {size} -> {target} bytes (168 MB)")
 else:
-    print(f"[+] ISO already {size} bytes (>= 64 MB)")
+    print(f"[+] ISO already {size} bytes (>= 168 MB)")
 EOF
 
 # Generate SHA256 Checksums

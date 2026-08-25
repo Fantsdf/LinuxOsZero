@@ -10,6 +10,7 @@
 #include <signal.h>
 #include "../drivers/fbdev.h"
 #include "../drivers/input.h"
+#include "../drivers/sound.h"
 #include "../gui/theme.h"
 #include "../gui/canvas.h"
 #include "../gui/font.h"
@@ -90,7 +91,9 @@ static void handle_desktop_icon_clicks(mouse_state_t *mouse) {
         if (mouse->x >= ix && mouse->x < (ix + isz + 20) &&
             mouse->y >= iy && mouse->y < (iy + isz + 24)) {
             if (ico->launch) {
+                sound_play(SND_CLICK);
                 ico->launch();
+                sound_play(SND_WINDOW_OPEN);
             }
             return;
         }
@@ -158,11 +161,16 @@ int main(int argc, char **argv) {
     wm_init(g_fbdev.width, g_fbdev.height);
     panel_init(g_fbdev.width, g_fbdev.height);
 
+    /* Initialize sound driver and play a startup jingle */
+    sound_init();
+    sound_play(SND_STARTUP);
+
     if (auto_installer) {
         app_launch_installer();
     } else {
         /* Открыть терминал по умолчанию */
         app_launch_terminal();
+        sound_play(SND_WINDOW_OPEN);
     }
 
     printf("[+] ZeroDesktop работает: %dx%d (32 bpp)\n", g_fbdev.width, g_fbdev.height);

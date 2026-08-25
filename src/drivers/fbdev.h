@@ -55,6 +55,10 @@ void fbdev_fill_circle(int cx, int cy, int radius, color_t color);
 void fbdev_draw_char(int x, int y, char c, color_t fg, color_t bg);
 void fbdev_draw_string(int x, int y, const char *str, color_t fg, color_t bg);
 void fbdev_draw_string_utf8(int x, int y, const char *utf8_str, color_t fg, color_t bg);
+/* Draw a smooth vertical gradient between two colors (for wallpaper/panels). */
+void fbdev_fill_gradient_v(int x, int y, int width, int height, color_t top, color_t bottom);
+/* Draw a smooth radial gradient centered on (cx, cy). */
+void fbdev_fill_gradient_r(int cx, int cy, int width, int height, color_t inner, color_t outer);
 void fbdev_blit_buffer(int dx, int dy, int dw, int dh, const uint32_t *src, int sw, int sh);
 void fbdev_swap_buffers(void);
 

@@ -129,6 +129,62 @@ void fbdev_draw_rect(int x, int y, int width, int height, color_t color) {
     fbdev_fill_rect(x + width - 1, y, 1, height, color);
 }
 
+/* Linear interpolation helper for channel blending. */
+static uint8_t lerp_u8(uint8_t a, uint8_t b, uint32_t t, uint32_t max) {
+    return (uint8_t)((a * (max - t) + b * t) / max);
+}
+
+static color_t lerp_color(color_t c1, color_t c2, uint32_t t, uint32_t max) {
+    if (max == 0) return c1;
+    return COLOR_RGBA(
+        lerp_u8(COLOR_GET_R(c1), COLOR_GET_R(c2), t, max),
+        lerp_u8(COLOR_GET_G(c1), COLOR_GET_G(c2), t, max),
+        lerp_u8(COLOR_GET_B(c1), COLOR_GET_B(c2), t, max),
+        255);
+}
+
+void fbdev_fill_gradient_v(int x, int y, int width, int height, color_t top, color_t bottom) {
+    if (width <= 0 || height <= 0) return;
+    int x0 = x < 0 ? 0 : x;
+    int y0 = y < 0 ? 0 : y;
+    int x1 = (x + width) > (int)g_fbdev.width ? (int)g_fbdev.width : (x + width);
+    int y1 = (y + height) > (int)g_fbdev.height ? (int)g_fbdev.height : (y + height);
+    int span = x1 - x0;
+
+    for (int cy = y0; cy < y1; cy++) {
+        uint32_t t = (uint32_t)(cy - y0);
+        color_t col = lerp_color(top, bottom, t, (uint32_t)height);
+        uint32_t *row = &g_fbdev.back_buffer[cy * g_fbdev.width + x0];
+        for (int cx = 0; cx < span; cx++) {
+            row[cx] = col;
+        }
+    }
+}
+
+void fbdev_fill_gradient_r(int cx, int cy, int width, int height, color_t inner, color_t outer) {
+    if (width <= 0 || height <= 0) return;
+    int x0 = cx - width / 2;
+    int y0 = cy - height / 2;
+    int x1 = x0 + width;
+    int y1 = y0 + height;
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 > (int)g_fbdev.width) x1 = g_fbdev.width;
+    if (y1 > (int)g_fbdev.height) y1 = g_fbdev.height;
+
+    int max_r = (width > height ? width : height) / 2;
+    if (max_r <= 0) max_r = 1;
+
+    for (int r = y0; r < y1; r++) {
+        for (int c = x0; c < x1; c++) {
+            int dx = c - cx, dy = r - cy;
+            int dist = (dx < 0 ? -dx : dx) + (dy < 0 ? -dy : dy); /* manhattan approx */
+            if (dist > max_r) dist = max_r;
+            g_fbdev.back_buffer[r * g_fbdev.width + c] = lerp_color(inner, outer, (uint32_t)dist, (uint32_t)max_r);
+        }
+    }
+}
+
 void fbdev_draw_line(int x0, int y0, int x1, int y1, color_t color) {
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;

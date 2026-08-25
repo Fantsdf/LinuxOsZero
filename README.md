@@ -68,7 +68,11 @@
 
 6. **QEMU/KVM, VirtualBox и VMware**:
    - Автоматическое определение гипервизора по PCI и подключение соответствующих драйверов.
-   - Готовая ISO (~64 МБ) для QEMU (`make test-qemu`), VirtualBox и VMware.
+   - Готовая ISO (~168 МБ) для QEMU (`make test-qemu`), VirtualBox и VMware.
+   - Сжатый ZIP-архив ISO для быстрого скачивания.
+
+7. **Звук**: встроенный драйвер звука (PC Speaker / console bell) с UI-эффектами
+   (запуск, открытие/закрытие окон, клики, ошибки) и сгенерированный WAV-пакет в ISO.
 
 ---
 
@@ -104,18 +108,7 @@ make all
 > CI-workflow `ci/build-release.yml` предназначен для сборки ISO на GitHub Actions,
 > когда это разрешено политикой прав токена репозитория.
 
-### 3. Интерактивная веб-версия рабочего стола
-Не обязательно запускать VirtualBox, чтобы увидеть интерфейс — проект включает
-**живой браузерный симулятор ZeroDesktop** (boot-экран, экран входа с выбором
-интерфейса и темы, рабочий стол, оконный менеджер, интерактивный терминал,
-монитор системы, калькулятор, установщик, менеджер файлов, редактор и панель управления):
-
-```bash
-make preview
-# → http://0.0.0.0:8080  (откройте в браузере)
-```
-
-### 4. Запуск в QEMU
+### 3. Запуск в QEMU
 LinuxOSZero полностью поддерживает **QEMU/KVM** (наряду с VirtualBox и VMware):
 
 ```bash
@@ -147,7 +140,7 @@ LinuxOsZero/
 ├── src/
 │   ├── boot/                         # Загрузчик MBR/Stage2 (16-bit -> 32-bit -> 64-bit)
 │   ├── kernel/                       # Ядро, GDT, IDT, PCI сканер, VGA
-│   ├── drivers/                      # Драйверы VirtualBox (VBoxGuest, VBoxVideo, VBoxMouse, Framebuffer)
+│   ├── drivers/                      # Драйверы (VBoxGuest, VBoxVideo, Sound, Framebuffer, Input)
 │   ├── init/                         # ZeroInit (PID 1), inittab, rc.sysinit, rc.shutdown
 │   ├── gui/                          # Графический движок, канвас, шрифты, иконки, обои
 │   ├── desktop/                      # Оконный менеджер ZeroWM, панель ZeroPanel
@@ -157,13 +150,13 @@ LinuxOsZero/
 │   ├── build-kernel.sh               # Сборка ядра и загрузчика
 │   ├── build-rootfs.sh               # Генерация rootfs и сжатого initramfs
 │   ├── iso_creator.py                # Генератор загрузочного ISO-9660 + El Torito
-│   ├── build-iso.sh                  # Главный скрипт сборки ISO (~64 МБ)
+│   ├── build-iso.sh                  # Главный скрипт сборки ISO (~168 МБ)
 │   ├── test-vbox.sh                  # Запуск в VirtualBox
 │   └── test-qemu.sh                  # Запуск в QEMU/KVM
-├── web_preview/                      # Интерактивный веб-симулятор ZeroDesktop
-│   └── public/icons.js               # Собственные SVG-иконки (без эмодзи)
+├── assets/                           # Сгенерированные обои и логотип
 └── dist/
-    ├── LinuxOSZero-v1.0.0-x86_64.iso # Готовый загрузочный образ (~64 МБ) для VirtualBox/QEMU
+    ├── LinuxOSZero-v1.0.0-x86_64.iso # Загрузочный образ (~168 МБ) для VirtualBox/QEMU
+    ├── LinuxOSZero-v1.0.0-x86_64.zip # Сжатый архив ISO (~24 МБ)
     └── SHA256SUMS                    # Контрольные суммы релиза
 ```
 
@@ -179,7 +172,6 @@ LinuxOsZero/
 | `make tools` | Сборка сервисов `zero-init`, `zero-guest-agent`, `zero-fetch` |
 | `make rootfs` | Создание файловой системы `dist/initrd.img` |
 | `make iso` | Генерация ISO образа `dist/LinuxOSZero-v1.0.0-x86_64.iso` |
-| `make preview` | Запуск интерактивного веб-симулятора ОС (порт 8080) |
 | `./release.sh --verify` | Проверка контрольных сумм и готовности релиза |
 | `./release.sh --publish` | Публикация релиза на GitHub через `gh release create` |
 

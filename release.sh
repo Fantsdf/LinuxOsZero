@@ -8,6 +8,7 @@ cd "$REPO_ROOT"
 VERSION="1.0.0"
 TAG="v$VERSION"
 ISO_FILE="$REPO_ROOT/dist/LinuxOSZero-v1.0.0-x86_64.iso"
+ZIP_FILE="$REPO_ROOT/dist/LinuxOSZero-v1.0.0-x86_64.zip"
 SUMS_FILE="$REPO_ROOT/dist/SHA256SUMS"
 
 echo "=========================================================="
@@ -20,17 +21,26 @@ if [ ! -f "$ISO_FILE" ]; then
     "$REPO_ROOT/builder/build-iso.sh"
 fi
 
+# Build a compressed ZIP archive of the ISO (smaller download)
+if [ ! -f "$ZIP_FILE" ] || [ "$ISO_FILE" -nt "$ZIP_FILE" ]; then
+    echo "[+] Compressing ISO into ZIP archive..."
+    (cd "$REPO_ROOT/dist" && rm -f "$(basename "$ZIP_FILE")" && \
+     zip -9 "$(basename "$ZIP_FILE")" "$(basename "$ISO_FILE")")
+fi
+
 # Verify Checksums
 echo "[+] Verifying release checksums..."
 (cd "$REPO_ROOT/dist" && sha256sum -c SHA256SUMS)
 
 ISO_SIZE=$(ls -lh "$ISO_FILE" | awk '{print $5}')
+ZIP_SIZE=$(ls -lh "$ZIP_FILE" | awk '{print $5}')
 SHA256_HASH=$(cat "$SUMS_FILE" | awk '{print $1}')
 
 echo ""
 echo "[*] Release Artifact Information:"
 echo "    - Tag      : $TAG"
-echo "    - File     : $ISO_FILE ($ISO_SIZE)"
+echo "    - ISO      : $ISO_FILE ($ISO_SIZE)"
+echo "    - ZIP      : $ZIP_FILE ($ZIP_SIZE)"
 echo "    - SHA256   : $SHA256_HASH"
 echo ""
 
@@ -47,6 +57,7 @@ if [ "$1" == "--publish" ]; then
         echo "[+] Creating GitHub Release via gh CLI..."
         gh release create "$TAG" \
             "$ISO_FILE" \
+            "$ZIP_FILE" \
             "$SUMS_FILE" \
             --title "LinuxOSZero v$VERSION - Genesis Edition" \
             --notes "### LinuxOSZero v$VERSION Genesis Edition (x86_64)
