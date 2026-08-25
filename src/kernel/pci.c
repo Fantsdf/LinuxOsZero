@@ -30,30 +30,66 @@ void pci_write_config_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off
 
 static const char *get_device_description(uint16_t vendor_id, uint16_t device_id, uint8_t class_code) {
     if (vendor_id == PCI_VENDOR_VBOX) {
-        if (device_id == PCI_DEVICE_VBOX_GUEST) return "Oracle VirtualBox Guest Additions PCI Device (VMMDev)";
-        if (device_id == PCI_DEVICE_VBOX_VIDEO) return "Oracle VirtualBox Graphics Adapter (VBoxVideo / VMSVGA)";
-        return "Oracle VirtualBox Generic Device";
+        switch (device_id) {
+            case PCI_DEVICE_VBOX_GUEST: return "Oracle VirtualBox Guest Additions (VMMDev, I/O port 0xD020)";
+            case PCI_DEVICE_VBOX_VIDEO: return "Oracle VirtualBox Graphics Adapter (VBoxSVGA / VMSVGA)";
+            case PCI_DEVICE_VBOX_NET:   return "Oracle VirtualBox Network Adapter (NAT / Bridged)";
+            case PCI_DEVICE_VBOX_HGCM:  return "Oracle VirtualBox HGCM Service";
+            case PCI_DEVICE_VBOX_AUDIO: return "Oracle VirtualBox AC'97 Audio";
+            case PCI_DEVICE_VBOX_USB:   return "Oracle VirtualBox USB Host Controller (EHCI/xHCI)";
+            default:                    return "Oracle VirtualBox Generic Device";
+        }
     }
     if (vendor_id == PCI_VENDOR_INTEL) {
-        if (device_id == 0x100E) return "Intel 82540EM Gigabit Ethernet (VirtualBox Default NIC)";
-        if (device_id == 0x100F) return "Intel 82545EM Gigabit Ethernet";
-        if (device_id == 0x2415) return "Intel 82801AA AC'97 Audio Controller";
-        if (device_id == 0x2668) return "Intel ICH6 High Definition Audio";
-        if (device_id == 0x7111) return "Intel PIIX4 IDE Controller";
-        if (device_id == 0x2829) return "Intel ICH8M AHCI SATA Controller";
-        return "Intel Corporation Device";
+        switch (device_id) {
+            case 0x100E: return "Intel 82540EM Gigabit Ethernet (VirtualBox Default NIC)";
+            case 0x100F: return "Intel 82545EM Gigabit Ethernet";
+            case 0x2415: return "Intel 82801AA AC'97 Audio Controller";
+            case 0x2668: return "Intel ICH6 High Definition Audio";
+            case 0x7111: return "Intel PIIX4 IDE Controller";
+            case 0x2829: return "Intel ICH8M AHCI SATA Controller";
+            case 0x2922: return "Intel ICH9 AHCI SATA Controller";
+            case 0x1237: return "Intel 82371SB PIIX3 ISA Bridge (VirtualBox Chipset)";
+            case 0x7000: return "Intel 82371SB PIIX3 IDE Controller";
+            case 0x7010: return "Intel PIIX3 USB Host Controller";
+            case 0x24CD: return "Intel ICH6 USB2 EHCI Host Controller";
+            default:     return "Intel Corporation Device";
+        }
     }
     if (vendor_id == PCI_VENDOR_REDHAT) {
-        if (device_id == 0x1000) return "VirtIO Network Adapter";
-        if (device_id == 0x1001) return "VirtIO Block Device";
-        if (device_id == 0x1050) return "VirtIO GPU Adapter";
-        return "Red Hat VirtIO Device";
+        switch (device_id) {
+            case 0x1000: return "VirtIO Network Adapter";
+            case 0x1001: return "VirtIO Block Device";
+            case 0x1003: return "VirtIO Memory Balloon";
+            case 0x1050: return "VirtIO GPU Adapter";
+            case 0x1045: return "VirtIO Console";
+            default:     return "Red Hat VirtIO Device";
+        }
     }
     if (vendor_id == PCI_VENDOR_VMWARE) {
-        if (device_id == 0x0405) return "VMware SVGA II Adapter";
-        return "VMware Virtual Device";
+        switch (device_id) {
+            case 0x0405: return "VMware SVGA II Adapter";
+            case 0x0720: return "VMware VMXNET3 Ethernet";
+            case 0x0740: return "VMware Virtual SATA Controller";
+            default:     return "VMware Virtual Device";
+        }
     }
-    
+    if (vendor_id == PCI_VENDOR_AMD) {
+        switch (device_id) {
+            case 0x7439: return "AMD 768 PCI-ISA Bridge";
+            default:     return "AMD Device";
+        }
+    }
+    if (vendor_id == PCI_VENDOR_REALTEK) {
+        switch (device_id) {
+            case 0x8139: return "Realtek RTL8139 Fast Ethernet";
+            default:     return "Realtek Device";
+        }
+    }
+    if (vendor_id == PCI_VENDOR_NVIDIA) {
+        return "NVIDIA Device";
+    }
+
     switch (class_code) {
         case 0x01: return "Mass Storage Controller";
         case 0x02: return "Network Controller";

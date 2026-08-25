@@ -38,6 +38,8 @@ typedef struct {
 
 int vboxvideo_init(void);
 int vboxvideo_set_mode(uint32_t width, uint32_t height, uint32_t bpp);
+int vboxvideo_mode_supported(uint32_t width, uint32_t height, uint32_t bpp);
 void vboxvideo_get_current_mode(vbox_display_mode_t *mode);
+void vboxvideo_get_vram_size(uint32_t *vram_mb);
 
 #endif /* VBOXVIDEO_H */

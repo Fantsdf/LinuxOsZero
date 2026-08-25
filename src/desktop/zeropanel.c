@@ -29,12 +29,12 @@ typedef struct {
 } menu_item_t;
 
 static const menu_item_t menu_items[] = {
-    { "Install LinuxOSZero (GUI)",     ICON_INSTALLER,     app_launch_installer },
-    { "Zero Terminal",                 ICON_TERMINAL,      app_launch_terminal },
-    { "File Manager",                  ICON_FILE_MANAGER,  app_launch_file_manager },
-    { "Control Panel & Drivers",       ICON_CONTROL_PANEL, app_launch_control_panel },
-    { "Zero Text Editor",              ICON_EDITOR,        app_launch_editor },
-    { "System Info (ZeroFetch)",       ICON_SYSTEM_INFO,   app_launch_fetch },
+    { "Установить LinuxOSZero",        ICON_INSTALLER,     app_launch_installer },
+    { "Терминал",                      ICON_TERMINAL,      app_launch_terminal },
+    { "Файловый менеджер",             ICON_FILE_MANAGER,  app_launch_file_manager },
+    { "Параметры и драйверы",          ICON_CONTROL_PANEL, app_launch_control_panel },
+    { "Текстовый редактор",            ICON_EDITOR,        app_launch_editor },
+    { "О системе (ZeroFetch)",         ICON_SYSTEM_INFO,   app_launch_fetch },
 };
 #define MENU_ITEM_COUNT (sizeof(menu_items) / sizeof(menu_items[0]))
 

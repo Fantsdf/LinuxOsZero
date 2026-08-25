@@ -34,6 +34,15 @@
 #define VBOX_GUEST_CAP_SHARED_CLIPBOARD     (1 << 3)
 #define VBOX_GUEST_CAP_SHARED_FOLDERS       (1 << 4)
 #define VBOX_GUEST_CAP_AUTORESIZE           (1 << 5)
+#define VBOX_GUEST_CAP_VIDEO_ACCEL          (1 << 6)
+#define VBOX_GUEST_CAP_MOUSE_SILENT         (1 << 7)
+
+/* VMMDev request header version (interface version) */
+#define VBOX_REQUEST_HEADER_VERSION         0x10001
+
+/* Guest OS types (os_type field) */
+#define VBOX_OSTYPE_Linux                   0x10000
+#define VBOX_OSTYPE_Linux64                 0x10001
 
 /* Request Header */
 typedef struct {
@@ -73,5 +82,7 @@ int vboxguest_set_mouse_features(bool enable_absolute);
 int vboxguest_get_mouse_position(int *x, int *y, uint32_t *buttons);
 int vboxguest_set_capabilities(uint32_t caps);
 int vboxguest_sync_time(void);
+uint32_t vboxguest_get_active_caps(void);
+const char *vboxguest_status_string(void);
 
 #endif /* VBOXGUEST_H */

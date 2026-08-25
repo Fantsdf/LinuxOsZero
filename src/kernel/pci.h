@@ -22,7 +22,21 @@
 
 /* VirtualBox PCI Device IDs */
 #define PCI_DEVICE_VBOX_GUEST   0xCAFE  /* VirtualBox Guest Services (VMMDev) */
-#define PCI_DEVICE_VBOX_VIDEO   0xBEEF  /* VirtualBox Graphics Adapter */
+#define PCI_DEVICE_VBOX_VIDEO   0xBEEF  /* VirtualBox Graphics Adapter (VBoxSVGA / VMSVGA) */
+#define PCI_DEVICE_VBOX_NET     0x2000  /* VirtualBox Host-Only / NAT Network */
+#define PCI_DEVICE_VBOX_HGCM    0xC0DE  /* VirtualBox HGCM Service (legacy) */
+#define PCI_DEVICE_VBOX_AUDIO   0x80EE  /* VirtualBox AC'97 Audio (legacy) */
+#define PCI_DEVICE_VBOX_USB     0xB00F  /* VirtualBox USB Host Controller */
+
+/* PCI class/subclass codes */
+#define PCI_CLASS_DISPLAY_VGA   0x0300  /* VGA-compatible display controller */
+#define PCI_CLASS_DISPLAY_3D    0x0302  /* 3D controller */
+#define PCI_CLASS_NETWORK_ETHER 0x0200  /* Ethernet controller */
+#define PCI_CLASS_STORAGE_ATA   0x0101  /* IDE controller */
+#define PCI_CLASS_STORAGE_AHCI  0x0106  /* Serial ATA (AHCI) */
+#define PCI_CLASS_BRIDGE_HOST   0x0600  /* Host bridge */
+#define PCI_CLASS_BRIDGE_PCI    0x0604  /* PCI-to-PCI bridge */
+#define PCI_CLASS_SERIAL_USB    0x0C03  /* USB controller */
 
 typedef struct pci_device {
     uint8_t bus;

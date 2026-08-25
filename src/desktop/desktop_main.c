@@ -36,12 +36,12 @@ extern void app_launch_editor(void);
 extern void app_launch_fetch(void);
 
 static desktop_icon_t desktop_icons[] = {
-    { "Install OS",     ICON_INSTALLER,     24,  24, app_launch_installer },
-    { "Terminal",       ICON_TERMINAL,      24, 110, app_launch_terminal },
-    { "Files",          ICON_FILE_MANAGER,  24, 196, app_launch_file_manager },
-    { "Settings",       ICON_CONTROL_PANEL, 24, 282, app_launch_control_panel },
-    { "Editor",         ICON_EDITOR,        24, 368, app_launch_editor },
-    { "System Info",    ICON_SYSTEM_INFO,   24, 454, app_launch_fetch },
+    { "Установка ОС",   ICON_INSTALLER,     24,  24, app_launch_installer },
+    { "Терминал",       ICON_TERMINAL,      24, 110, app_launch_terminal },
+    { "Файлы",          ICON_FILE_MANAGER,  24, 196, app_launch_file_manager },
+    { "Параметры",      ICON_CONTROL_PANEL, 24, 282, app_launch_control_panel },
+    { "Редактор",       ICON_EDITOR,        24, 368, app_launch_editor },
+    { "О системе",      ICON_SYSTEM_INFO,   24, 454, app_launch_fetch },
 };
 #define DESKTOP_ICON_COUNT (sizeof(desktop_icons) / sizeof(desktop_icons[0]))
 
@@ -146,9 +146,9 @@ int main(int argc, char **argv) {
     signal(SIGTERM, sig_exit);
 
     /* Initialize Subsystems */
-    printf("[+] Initializing LinuxOSZero Graphics & Desktop...\n");
+    printf("[+] Инициализация графики и рабочего стола LinuxOSZero...\n");
     if (fbdev_init("/dev/fb0", 1024, 768) < 0) {
-        fprintf(stderr, "Failed to initialize fbdev.\n");
+        fprintf(stderr, "Не удалось инициализировать fbdev.\n");
         return 1;
     }
 
@@ -161,11 +161,11 @@ int main(int argc, char **argv) {
     if (auto_installer) {
         app_launch_installer();
     } else {
-        /* Open Terminal by default */
+        /* Открыть терминал по умолчанию */
         app_launch_terminal();
     }
 
-    printf("[+] ZeroDesktop running at %dx%d (32 bpp)\n", g_fbdev.width, g_fbdev.height);
+    printf("[+] ZeroDesktop работает: %dx%d (32 bpp)\n", g_fbdev.width, g_fbdev.height);
 
     /* Main Render & Event Loop */
     while (g_running) {
@@ -202,6 +202,6 @@ int main(int argc, char **argv) {
     }
 
     fbdev_close();
-    printf("[+] ZeroDesktop shutdown cleanly.\n");
+    printf("[+] ZeroDesktop завершил работу корректно.\n");
     return 0;
 }
