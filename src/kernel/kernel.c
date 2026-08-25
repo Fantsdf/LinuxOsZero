@@ -15,8 +15,8 @@
 system_info_t g_sysinfo = {
     .screen_width = 1024,
     .screen_height = 768,
-    .screen_pitch = 1024 * 4,
-    .screen_bpp = 32,
+    .screen_pitch = 1024 * 3,
+    .screen_bpp = 24,
     .framebuffer = (uint32_t *)0xE0000000,
     .total_memory_kb = 2048 * 1024,
     .free_memory_kb = 1800 * 1024,
@@ -90,14 +90,28 @@ static void fb_fill_rect(int x, int y, int w, int h, uint32_t color) {
 
     uint8_t *fb = (uint8_t *)g_sysinfo.framebuffer;
     uint32_t pitch = g_sysinfo.screen_pitch;
+    uint8_t r = (uint8_t)((color >> 16) & 0xFF);
+    uint8_t g = (uint8_t)((color >> 8) & 0xFF);
+    uint8_t b = (uint8_t)(color & 0xFF);
 
-    for (int cy = y; cy < y + h; cy++) {
-        if (g_sysinfo.screen_bpp == 32) {
+    if (g_sysinfo.screen_bpp == 32) {
+        for (int cy = y; cy < y + h; cy++) {
             uint32_t *row = (uint32_t *)(fb + cy * pitch + x * 4);
             for (int cx = 0; cx < w; cx++) {
                 row[cx] = color;
             }
-        } else {
+        }
+    } else if (g_sysinfo.screen_bpp == 24) {
+        for (int cy = y; cy < y + h; cy++) {
+            uint8_t *row = fb + cy * pitch + x * 3;
+            for (int cx = 0; cx < w; cx++) {
+                row[cx * 3 + 0] = b;
+                row[cx * 3 + 1] = g;
+                row[cx * 3 + 2] = r;
+            }
+        }
+    } else {
+        for (int cy = y; cy < y + h; cy++) {
             for (int cx = x; cx < x + w; cx++) {
                 fb_putpixel(cx, cy, color);
             }
@@ -190,7 +204,7 @@ static void run_driver_installer(void) {
         kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMMDev (0x80EE:0xCAFE, Port 0xD020)", g_success_col);
         kterm_add_line("    -> Загрузка Ring-0 драйвера гостевых дополнений... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMSVGA 3D (0x80EE:0xBEEF)", g_success_col);
-        kterm_add_line("    -> Настройка 1024x768x32 3D Linear Framebuffer... [OK]", g_text_primary);
+        kterm_add_line("    -> Настройка 1024x768 Linear Framebuffer... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Intel 82540EM Gigabit Ethernet (0x8086:0x100E)", g_success_col);
         kterm_add_line("    -> Инициализация сети NAT / DHCP... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Intel 82801AA AC'97 Audio Controller (0x8086:0x2415)", g_success_col);
@@ -283,7 +297,7 @@ static void kterm_execute(const char *cmd) {
     } else if (str_eq(cmd, "vbox") || str_eq(cmd, "/vbox") || str_eq(cmd, "zero-hwprobe --vbox")) {
         kterm_add_line("[*] Диагностика гипервизора Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)", g_accent);
         kterm_add_line("[OK] VMMDev Channel (PCI 0x80EE:0xCAFE, Port 0xD020): ПОДКЛЮЧЁН", g_success_col);
-        kterm_add_line("[OK] VMSVGA Display: 1024x768x32 с аппаратным 3D-ускорением (DisplayWrap Fixed)", g_success_col);
+        kterm_add_line("[OK] VMSVGA Display: 1024x768x24/32 с аппаратным ускорением (DisplayWrap Fixed)", g_success_col);
         kterm_add_line("[OK] Guru Meditation 1155 (Triple Fault): УСТРАНЁН (Стек в Extended RAM 0x200000)", g_success_col);
         kterm_add_line("[OK] Драйвер клавиатуры PS/2: АКТИВЕН (Скан-коды Set 1/2 + раскладка US/RU)", g_success_col);
         kterm_add_line("[OK] Интеграция указателя мыши (USB Tablet): АКТИВНА", g_success_col);
@@ -294,7 +308,7 @@ static void kterm_execute(const char *cmd) {
         kterm_add_line(" | () () |     ОС     : LinuxOSZero 1.1.0 (Titan Edition) x86_64", g_text_primary);
         kterm_add_line("  \\  _  /      Хост   : Oracle VM VirtualBox 7.2.4", g_text_primary);
         kterm_add_line("   '---'       Ядро   : 6.1.0-zero-titan x86_64 Long Mode", g_text_primary);
-        kterm_add_line("               Дисплей: VMSVGA 1024x768 @ 32 bpp (LFB 0xE0000000)", g_text_primary);
+        kterm_add_line("               Дисплей: VMSVGA 1024x768 (LFB 0xE0000000)", g_text_primary);
         kterm_add_line("               ОЗУ    : 245 МБ / 2048 МБ", g_text_primary);
         kterm_add_line("               Драйверы: VMMDev, VMSVGA, AC97, E1000, PS/2 [АКТИВНЫ]", g_success_col);
     } else if (str_starts(cmd, "uname")) {
@@ -336,9 +350,9 @@ static void kterm_execute(const char *cmd) {
     } else if (str_eq(cmd, "whoami")) {
         kterm_add_line("user (UID 1000, GID 1000, Группы: wheel, video, audio, vboxsf, sudo)", g_text_primary);
     } else if (str_eq(cmd, "date")) {
-        kterm_add_line("Tue Aug 25 13:20:00 UTC 2026", g_text_primary);
+        kterm_add_line("Tue Aug 25 13:25:00 UTC 2026", g_text_primary);
     } else if (str_eq(cmd, "uptime")) {
-        kterm_add_line("up 1 hour, 52 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
+        kterm_add_line("up 1 hour, 55 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
     } else if (str_eq(cmd, "free")) {
         kterm_add_line("               total        used        free      shared  buff/cache   available", g_text_secondary);
         kterm_add_line("Mem:         2048000      250880     1797120        4096       32768     1793024", g_text_primary);
@@ -402,8 +416,8 @@ static void kterm_execute(const char *cmd) {
         kterm_add_line("[OK] Раскладка клавиатуры переключена на: US (English)", g_success_col);
     } else if (str_eq(cmd, "video") || str_eq(cmd, "/video")) {
         kterm_add_line("[*] Видеоподсистема: InnoTek/VirtualBox VMSVGA (0x80EE:0xBEEF)", g_accent);
-        kterm_add_line("    Разрешение: 1024 x 768 @ 32 bpp (Linear Framebuffer)", g_text_primary);
-        kterm_add_line("    VRAM База : 0xE0000000 | Pitch: 4096 байт на строку", g_text_primary);
+        kterm_add_line("    Разрешение: 1024 x 768 (Linear Framebuffer)", g_text_primary);
+        kterm_add_line("    VRAM База : 0xE0000000 | Pitch: 3072/4096 байт на строку", g_text_primary);
         kterm_add_line("    Статус    : Аппаратное 2D/3D ускорение активно", g_success_col);
     } else if (str_eq(cmd, "audio") || str_eq(cmd, "/audio")) {
         kterm_add_line("[*] Аудиоподсистема: Intel 82801AA AC'97 Controller (0x8086:0x2415)", g_accent);
@@ -437,20 +451,12 @@ static void render_gui_frame(void) {
     uint32_t sw = g_sysinfo.screen_width;
     uint32_t sh = g_sysinfo.screen_height;
 
-    /* 1. Desktop Wallpaper Background: Smooth Navy / Cyber Slate Gradient */
-    for (uint32_t y = 0; y < sh; y++) {
-        uint8_t r = (uint8_t)(0x0F + (y * 0x14) / sh);
-        uint8_t g = (uint8_t)(0x17 + (y * 0x28) / sh);
-        uint8_t b = (uint8_t)(0x2A + (y * 0x3E) / sh);
-        uint32_t col = COLOR_RGB(r, g, b);
-        for (uint32_t x = 0; x < sw; x++) {
-            fb_putpixel((int)x, (int)y, col);
-        }
-    }
+    /* 1. Desktop Wallpaper Background: Fast solid fill */
+    fb_fill_rect(0, 0, (int)sw, (int)sh, COLOR_RGB(15, 23, 42));
 
     /* 2. Top Taskbar / Status Panel (Height: 36px) */
     fb_fill_rect(0, 0, (int)sw, 36, COLOR_RGB(10, 15, 28));
-    fb_draw_rect(0, 0, (int)sw, 36, COLOR_RGB(30, 41, 59));
+    fb_draw_rect(0, 0, (int)sw, 36, COLOR_RGB(51, 65, 85));
 
     /* Start Button */
     fb_fill_rect(8, 5, 115, 26, COLOR_RGB(14, 165, 233));
@@ -476,7 +482,7 @@ static void render_gui_frame(void) {
     /* Window Shadow & Background */
     fb_fill_rect(wx + 4, wy + 4, ww, wh, COLOR_RGB(5, 8, 14));
     fb_fill_rect(wx, wy, ww, wh, g_win_bg);
-    fb_draw_rect(wx, wy, ww, wh, COLOR_RGB(51, 65, 85));
+    fb_draw_rect(wx, wy, ww, wh, COLOR_RGB(56, 189, 248));
 
     /* Window Title Bar (Height: 30px) */
     fb_fill_rect(wx, wy, ww, 30, g_win_title_bg);
@@ -539,7 +545,7 @@ static void init_kterminal(void) {
     kterm_add_line("   Интерактивный терминал готов. Введите 'help' или 'driver-install'", g_warn_col);
     kterm_add_line("======================================================================", g_accent);
     kterm_add_line("[*] Платформа: Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)", g_accent);
-    kterm_add_line("[✓] Графика: VMSVGA 1024x768 @ 32 bpp (Linear Framebuffer 0xE0000000)", g_success_col);
+    kterm_add_line("[✓] Графика: VMSVGA 1024x768 (Linear Framebuffer 0xE0000000)", g_success_col);
     kterm_add_line("[✓] Клавиатура: PS/2 контроллер i8042 (Скан-коды Set 1/2 + US/RU)", g_success_col);
     kterm_add_line("[✓] Драйверы: VMMDev, VMSVGA 3D, AC'97, E1000 [АКТИВНЫ]", g_success_col);
     kterm_add_line("[✓] Введите 'driver-install' для запуска мастера установки драйверов", g_warn_col);
@@ -598,7 +604,23 @@ void kernel_main(void) {
     /* Step 5: PCI Bus Hardware Discovery */
     pci_init();
 
-    /* Step 6: VirtualBox / Hypervisor Hardware Driver Setup */
+    /* Step 6: Hypervisor / Hardware Video Mode Synchronization */
+    if (*(volatile uint8_t *)0x6000 != 0) {
+        uint16_t w = *(volatile uint16_t *)0x6002;
+        uint16_t h = *(volatile uint16_t *)0x6004;
+        uint8_t bpp = *(volatile uint8_t *)0x6006;
+        uint16_t pitch = *(volatile uint16_t *)0x6008;
+        uint32_t fb_base = *(volatile uint32_t *)0x600C;
+        if (w > 0 && h > 0) {
+            g_sysinfo.screen_width = w;
+            g_sysinfo.screen_height = h;
+            g_sysinfo.screen_bpp = (bpp > 0) ? bpp : 24;
+            g_sysinfo.screen_pitch = (pitch > 0) ? pitch : (w * (g_sysinfo.screen_bpp / 8));
+            if (fb_base) g_sysinfo.framebuffer = (uint32_t *)(uintptr_t)fb_base;
+            g_gui_active = true;
+        }
+    }
+
     if (g_sysinfo.is_virtualbox) {
         vboxguest_init();
         vboxvideo_init();
@@ -606,28 +628,10 @@ void kernel_main(void) {
     } else if (g_sysinfo.is_qemu) {
         vboxvideo_init();
         g_gui_active = true;
-    } else {
-        /* Check if bootloader set VBE mode at 0x6000 */
-        if (*(volatile uint8_t *)0x6000 != 0) {
-            uint16_t w = *(volatile uint16_t *)0x6002;
-            uint16_t h = *(volatile uint16_t *)0x6004;
-            uint8_t bpp = *(volatile uint8_t *)0x6006;
-            uint16_t pitch = *(volatile uint16_t *)0x6008;
-            uint32_t fb_base = *(volatile uint32_t *)0x600C;
-            if (w > 0 && h > 0) {
-                g_sysinfo.screen_width = w;
-                g_sysinfo.screen_height = h;
-                g_sysinfo.screen_bpp = (bpp > 0) ? bpp : 32;
-                g_sysinfo.screen_pitch = (pitch > 0) ? pitch : (w * 4);
-                if (fb_base) g_sysinfo.framebuffer = (uint32_t *)(uintptr_t)fb_base;
-                g_gui_active = true;
-            }
-        }
     }
 
-    /* Guarantee VBE DISPI 1024x768x32 initialization */
+    /* Fallback default LFB if not yet active */
     if (!g_gui_active) {
-        vboxvideo_set_mode(1024, 768, 32);
         g_gui_active = true;
     }
 

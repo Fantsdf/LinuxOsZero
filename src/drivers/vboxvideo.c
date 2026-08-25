@@ -55,7 +55,7 @@ int vboxvideo_init(void) {
         current_mode.framebuffer = (uint32_t *)0xE0000000;
     }
 
-    return vboxvideo_set_mode(1024, 768, 32);
+    return 0;
 }
 
 /*
