@@ -78,7 +78,8 @@ make all
 
 > **Release всегда содержит `.iso`**: образ `LinuxOSZero-v1.0.0-x86_64.iso` и файл `SHA256SUMS`
 > прикрепляются к GitHub Release автоматически — либо локально через
-> `./release.sh --publish`, либо через CI (workflow `ci/build-release.yml`).
+> `./release.sh --publish`, либо через CI (workflow `.github/workflows/build-release.yml`,
+> который запускается по тегу `v*` и собирает ISO на GitHub Actions).
 
 ### 3. Интерактивная веб-версия рабочего стола
 Не обязательно запускать VirtualBox, чтобы увидеть интерфейс — проект включает
@@ -99,8 +100,8 @@ LinuxOsZero/
 ├── Makefile                          # Главный Makefile проекта
 ├── README.md                         # Документация проекта
 ├── release.sh                        # Скрипт публикации релиза на GitHub (.iso + SHA256SUMS)
-├── ci/
-│   └── build-release.yml             # GitHub Actions CI для сборки ISO и релиза
+├── .github/workflows/
+│   └── build-release.yml             # GitHub Actions CI: сборка ISO и прикрепление к релизу
 ├── docs/
 │   ├── ARCHITECTURE.md               # Архитектура ядра, init и драйверов
 │   ├── VIRTUALBOX_GUIDE.md           # Подробное руководство по VirtualBox
