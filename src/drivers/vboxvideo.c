@@ -40,19 +40,29 @@ int vboxvideo_init(void) {
         vbe_available = true;
     }
 
-    /* Probe PCI BAR0 for physical framebuffer address if available */
-    pci_device_t *vbox_vga = pci_find_device(PCI_VENDOR_VBOX, PCI_DEVICE_VBOX_VIDEO);
-    if (vbox_vga) {
-        if (vbox_vga->bar[0] & ~0x0F) {
-            current_mode.framebuffer = (uint32_t *)(uintptr_t)(vbox_vga->bar[0] & ~0x0F);
+    /* Probe PCI for physical framebuffer address (VBox VGA 0x80EE:0xBEEF or Class 0x0300) */
+    pci_device_t *vga = pci_find_device(PCI_VENDOR_VBOX, PCI_DEVICE_VBOX_VIDEO);
+    if (!vga) {
+        vga = pci_find_class(0x03, 0x00);
+    }
+    if (!vga) {
+        vga = pci_find_device(0x15AD, 0x0405); /* VMware / VirtualBox VMSVGA */
+    }
+
+    if (vga) {
+        if (vga->bar[0] & ~0x0F) {
+            uint32_t fb_addr = (vga->bar[0] & ~0x0F);
+            current_mode.framebuffer = (uint32_t *)(uintptr_t)fb_addr;
+            g_sysinfo.framebuffer = (uint32_t *)(uintptr_t)fb_addr;
         }
-        if (vbox_vga->bar[1] & ~0x0F) {
-            vbox_vram_size = (vbox_vga->bar[1] & ~0x0F);
+        if (vga->bar[1] & ~0x0F) {
+            vbox_vram_size = (vga->bar[1] & ~0x0F);
         }
     }
 
     if (!current_mode.framebuffer) {
         current_mode.framebuffer = (uint32_t *)0xE0000000;
+        g_sysinfo.framebuffer = (uint32_t *)0xE0000000;
     }
 
     return 0;

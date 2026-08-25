@@ -64,13 +64,10 @@ int vboxguest_init(void) {
     s_guest_info.os_type = VBOX_OSTYPE_Linux64;
     vbox_send_request(&s_guest_info);
 
-    /* Enable guest capabilities */
+    /* Enable safe guest capabilities (compatible with both 2D and 3D VM configs) */
     uint32_t caps = VBOX_GUEST_CAP_MOUSE_INTEGRATION |
-                    VBOX_GUEST_CAP_AUTORESIZE |
                     VBOX_GUEST_CAP_SHARED_FOLDERS |
-                    VBOX_GUEST_CAP_SHARED_CLIPBOARD |
-                    VBOX_GUEST_CAP_VIDEO_ACCEL |
-                    VBOX_GUEST_CAP_SEAMLESS_MODE;
+                    VBOX_GUEST_CAP_SHARED_CLIPBOARD;
     vboxguest_set_capabilities(caps);
     vboxguest_set_mouse_features(true);
     vboxguest_sync_time();

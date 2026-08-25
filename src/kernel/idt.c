@@ -41,7 +41,10 @@ static struct idt_ptr ip __attribute__((aligned(16)));
 extern void *isr_stub_table[256];
 
 void isr_handler(interrupt_frame_t *frame) {
-    if (frame->int_no == 0x21) {
+    if (frame->int_no == 0x20) {
+        /* IRQ 0 - System Timer PIT tick (keeps VCPU alive and flushes VRAM) */
+        outb(0x20, 0x20); /* Master PIC EOI */
+    } else if (frame->int_no == 0x21) {
         /* IRQ 1 - PS/2 Keyboard */
         keyboard_isr();
     } else if (frame->int_no >= 0x20 && frame->int_no <= 0x2F) {
@@ -93,7 +96,7 @@ void idt_init(void) {
     outb(0xA1, 0x01);
     io_wait();
 
-    /* Unmask IRQ 1 (Keyboard) and IRQ 2 (Cascade) on Master PIC, mask all on Slave */
-    outb(0x21, 0xFD); /* 11111101b - IRQ1 unmasked */
+    /* Unmask IRQ 0 (Timer PIT), IRQ 1 (Keyboard), IRQ 2 (Cascade) on Master PIC */
+    outb(0x21, 0xFC); /* 11111100b - IRQ0 and IRQ1 unmasked */
     outb(0xA1, 0xFF); /* Mask all on Slave PIC */
 }
