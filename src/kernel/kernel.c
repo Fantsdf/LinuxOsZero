@@ -54,6 +54,7 @@ static uint32_t g_warn_col = 0xFFEAB308;       /* Amber yellow */
 static uint32_t g_error_col = 0xFFEF4444;      /* Coral red */
 
 static bool g_gui_active = false;
+static bool g_need_full_redraw = true;
 static int g_blink = 0;
 
 /* --- Colors helper --- */
@@ -131,32 +132,92 @@ static void fb_draw_rect(int x, int y, int w, int h, uint32_t color) {
 }
 
 static void fb_draw_char(int x, int y, unsigned char c, uint32_t fg, uint32_t bg) {
+    if (x < 0 || (uint32_t)x + 8 > g_sysinfo.screen_width ||
+        y < 0 || (uint32_t)y + 16 > g_sysinfo.screen_height) return;
+
+    uint8_t *fb = (uint8_t *)g_sysinfo.framebuffer;
+    uint32_t pitch = g_sysinfo.screen_pitch;
     const uint8_t *glyph = g_font_data[c];
-    for (int row = 0; row < 16; row++) {
-        uint8_t bits = glyph[row];
-        for (int col = 0; col < 8; col++) {
-            if (bits & (0x80 >> col)) {
-                fb_putpixel(x + col, y + row, fg);
-            } else if (bg != 0) {
-                fb_putpixel(x + col, y + row, bg);
+
+    uint8_t fg_r = (uint8_t)((fg >> 16) & 0xFF);
+    uint8_t fg_g = (uint8_t)((fg >> 8) & 0xFF);
+    uint8_t fg_b = (uint8_t)(fg & 0xFF);
+
+    uint8_t bg_r = (uint8_t)((bg >> 16) & 0xFF);
+    uint8_t bg_g = (uint8_t)((bg >> 8) & 0xFF);
+    uint8_t bg_b = (uint8_t)(bg & 0xFF);
+
+    if (g_sysinfo.screen_bpp == 24) {
+        for (int row = 0; row < 16; row++) {
+            uint8_t bits = glyph[row];
+            uint8_t *p = fb + (y + row) * pitch + x * 3;
+            for (int col = 0; col < 8; col++) {
+                if (bits & (0x80 >> col)) {
+                    p[col * 3 + 0] = fg_b;
+                    p[col * 3 + 1] = fg_g;
+                    p[col * 3 + 2] = fg_r;
+                } else if (bg != 0) {
+                    p[col * 3 + 0] = bg_b;
+                    p[col * 3 + 1] = bg_g;
+                    p[col * 3 + 2] = bg_r;
+                }
+            }
+        }
+    } else {
+        for (int row = 0; row < 16; row++) {
+            uint8_t bits = glyph[row];
+            uint32_t *p = (uint32_t *)(fb + (y + row) * pitch + x * 4);
+            for (int col = 0; col < 8; col++) {
+                if (bits & (0x80 >> col)) {
+                    p[col] = fg;
+                } else if (bg != 0) {
+                    p[col] = bg;
+                }
             }
         }
     }
 }
 
-static void fb_draw_string(int x, int y, const char *str, uint32_t fg, uint32_t bg) {
-    if (!str) return;
+/* UTF-8 Cyrillic & Latin string drawing */
+static void fb_draw_string_utf8(int x, int y, const char *utf8_str, uint32_t fg, uint32_t bg) {
+    if (!utf8_str) return;
+    const unsigned char *s = (const unsigned char *)utf8_str;
     int cur_x = x;
-    while (*str) {
-        if (*str == '\n') {
-            y += 16;
+    int cur_y = y;
+
+    while (*s) {
+        if (*s == '\n') {
             cur_x = x;
-            str++;
-            continue;
+            cur_y += 16;
+            s++;
+        } else if (*s == '\t') {
+            cur_x += 32;
+            s++;
+        } else if (*s < 0x80) {
+            /* ASCII */
+            fb_draw_char(cur_x, cur_y, *s, fg, bg);
+            cur_x += 8;
+            s++;
+        } else if ((*s == 0xD0 || *s == 0xD1) && *(s + 1)) {
+            /* UTF-8 2-byte Cyrillic: D0 90..BF (А..п), D0 81 (Ё), D1 80..8F (р..я), D1 91 (ё) */
+            uint8_t byte1 = *s;
+            uint8_t byte2 = *(s + 1);
+            unsigned char cp_char = '?';
+
+            if (byte1 == 0xD0) {
+                if (byte2 == 0x81) cp_char = 0xF0; /* Ё */
+                else if (byte2 >= 0x90 && byte2 <= 0xBF) cp_char = (byte2 - 0x90) + 0x80; /* А..п in CP866 */
+            } else if (byte1 == 0xD1) {
+                if (byte2 == 0x91) cp_char = 0xF1; /* ё */
+                else if (byte2 >= 0x80 && byte2 <= 0x8F) cp_char = (byte2 - 0x80) + 0xE0; /* р..я in CP866 */
+            }
+
+            fb_draw_char(cur_x, cur_y, cp_char, fg, bg);
+            cur_x += 8;
+            s += 2;
+        } else {
+            s++;
         }
-        fb_draw_char(cur_x, y, (unsigned char)*str, fg, bg);
-        cur_x += 8;
-        str++;
     }
 }
 
@@ -201,7 +262,7 @@ static void run_driver_installer(void) {
     kterm_add_line("[+] Сканирование шины PCI и конфигурационного пространства...", g_text_secondary);
     
     if (g_sysinfo.is_virtualbox) {
-        kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMMDev (0x80EE:0xCAFE, Port 0xD020)", g_success_col);
+        kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMMDev (0x80EE:0xCAFE, Port 0xD040)", g_success_col);
         kterm_add_line("    -> Загрузка Ring-0 драйвера гостевых дополнений... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMSVGA 3D (0x80EE:0xBEEF)", g_success_col);
         kterm_add_line("    -> Настройка 1024x768 Linear Framebuffer... [OK]", g_text_primary);
@@ -296,7 +357,7 @@ static void kterm_execute(const char *cmd) {
         run_driver_installer();
     } else if (str_eq(cmd, "vbox") || str_eq(cmd, "/vbox") || str_eq(cmd, "zero-hwprobe --vbox")) {
         kterm_add_line("[*] Диагностика гипервизора Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)", g_accent);
-        kterm_add_line("[OK] VMMDev Channel (PCI 0x80EE:0xCAFE, Port 0xD020): ПОДКЛЮЧЁН", g_success_col);
+        kterm_add_line("[OK] VMMDev Channel (PCI 0x80EE:0xCAFE, Port 0xD040): ПОДКЛЮЧЁН", g_success_col);
         kterm_add_line("[OK] VMSVGA Display: 1024x768x24/32 с аппаратным ускорением (DisplayWrap Fixed)", g_success_col);
         kterm_add_line("[OK] Guru Meditation 1155 (Triple Fault): УСТРАНЁН (Стек в Extended RAM 0x200000)", g_success_col);
         kterm_add_line("[OK] Драйвер клавиатуры PS/2: АКТИВЕН (Скан-коды Set 1/2 + раскладка US/RU)", g_success_col);
@@ -350,9 +411,9 @@ static void kterm_execute(const char *cmd) {
     } else if (str_eq(cmd, "whoami")) {
         kterm_add_line("user (UID 1000, GID 1000, Группы: wheel, video, audio, vboxsf, sudo)", g_text_primary);
     } else if (str_eq(cmd, "date")) {
-        kterm_add_line("Tue Aug 25 13:35:00 UTC 2026", g_text_primary);
+        kterm_add_line("Tue Aug 25 13:45:00 UTC 2026", g_text_primary);
     } else if (str_eq(cmd, "uptime")) {
-        kterm_add_line("up 1 hour, 58 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
+        kterm_add_line("up 2 hours, 05 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
     } else if (str_eq(cmd, "free")) {
         kterm_add_line("               total        used        free      shared  buff/cache   available", g_text_secondary);
         kterm_add_line("Mem:         2048000      250880     1797120        4096       32768     1793024", g_text_primary);
@@ -400,6 +461,7 @@ static void kterm_execute(const char *cmd) {
         g_accent = 0xFF0284C7;
         g_text_primary = 0xFF0F172A;
         g_text_secondary = 0xFF64748B;
+        g_need_full_redraw = true;
         kterm_add_line("[OK] Установлена светлая тема оформления", g_success_col);
     } else if (str_eq(cmd, "theme dark") || str_eq(cmd, "/theme dark") || str_eq(cmd, "theme")) {
         g_win_bg = 0xFF0A0F1A;
@@ -407,12 +469,15 @@ static void kterm_execute(const char *cmd) {
         g_accent = 0xFF38BDF8;
         g_text_primary = 0xFFF8FAFC;
         g_text_secondary = 0xFF94A3B8;
+        g_need_full_redraw = true;
         kterm_add_line("[OK] Установлена тёмная кибер-тема оформления", g_success_col);
     } else if (str_eq(cmd, "layout ru") || str_eq(cmd, "/layout ru")) {
         keyboard_set_layout(KBD_LAYOUT_RU);
+        g_need_full_redraw = true;
         kterm_add_line("[OK] Раскладка клавиатуры переключена на: RU (Русская)", g_success_col);
     } else if (str_eq(cmd, "layout en") || str_eq(cmd, "/layout en") || str_eq(cmd, "layout us")) {
         keyboard_set_layout(KBD_LAYOUT_US);
+        g_need_full_redraw = true;
         kterm_add_line("[OK] Раскладка клавиатуры переключена на: US (English)", g_success_col);
     } else if (str_eq(cmd, "video") || str_eq(cmd, "/video")) {
         kterm_add_line("[*] Видеоподсистема: InnoTek/VirtualBox VMSVGA (0x80EE:0xBEEF)", g_accent);
@@ -447,69 +512,70 @@ static void kterm_execute(const char *cmd) {
 
 /* --- Render Full Graphical Desktop & Terminal Window --- */
 
-static void render_gui_frame(void) {
+static void render_gui_frame(bool full_redraw) {
     uint32_t sw = g_sysinfo.screen_width;
     uint32_t sh = g_sysinfo.screen_height;
 
-    /* 1. Desktop Wallpaper Background: Rich Deep Blue Wallpaper */
-    fb_fill_rect(0, 0, (int)sw, (int)sh, COLOR_RGB(18, 38, 70));
-
-    /* 2. Top Taskbar / Status Panel (Height: 36px) */
-    fb_fill_rect(0, 0, (int)sw, 36, COLOR_RGB(12, 20, 36));
-    fb_draw_rect(0, 0, (int)sw, 36, COLOR_RGB(56, 189, 248));
-
-    /* Start Button */
-    fb_fill_rect(6, 4, 120, 28, COLOR_RGB(14, 165, 233));
-    fb_draw_string(16, 10, "[ ZERO OS ]", COLOR_RGB(10, 15, 28), 0);
-
-    /* System Status Indicators */
-    fb_draw_string(140, 10, "LinuxOSZero Titan v1.1.0 (x86_64)", COLOR_RGB(255, 255, 255), 0);
-
-    int lay = keyboard_get_layout();
-    const char *lay_str = (lay == KBD_LAYOUT_RU) ? "[ Раскладка: RU ]" : "[ Layout: EN ]";
-    fb_fill_rect((int)sw - 420, 4, 140, 28, COLOR_RGB(30, 41, 59));
-    fb_draw_string((int)sw - 410, 10, lay_str, g_accent, 0);
-
-    const char *drv_str = "VBox: VMMDev + VMSVGA [OK]";
-    fb_draw_string((int)sw - 265, 10, drv_str, g_success_col, 0);
-
-    /* Left Desktop Icons */
-    fb_fill_rect(16, 50, 88, 54, COLOR_RGB(12, 20, 36));
-    fb_draw_rect(16, 50, 88, 54, COLOR_RGB(56, 189, 248));
-    fb_draw_string(24, 68, "Терминал", COLOR_RGB(255, 255, 255), 0);
-
-    fb_fill_rect(16, 114, 88, 54, COLOR_RGB(12, 20, 36));
-    fb_draw_rect(16, 114, 88, 54, COLOR_RGB(34, 197, 94));
-    fb_draw_string(20, 132, "Установщик", COLOR_RGB(34, 197, 94), 0);
-
-    fb_fill_rect(16, 178, 88, 54, COLOR_RGB(12, 20, 36));
-    fb_draw_rect(16, 178, 88, 54, COLOR_RGB(234, 179, 8));
-    fb_draw_string(20, 196, "Драйверы", COLOR_RGB(234, 179, 8), 0);
-
-    /* 3. Terminal Window Frame (Centered: x=120, y=50, w=874, h=690) */
     int wx = 120;
     int wy = 50;
     int ww = (int)sw - 140;
     int wh = (int)sh - 70;
 
-    /* Window Shadow & Background */
-    fb_fill_rect(wx + 4, wy + 4, ww, wh, COLOR_RGB(5, 8, 14));
-    fb_fill_rect(wx, wy, ww, wh, g_win_bg);
-    fb_draw_rect(wx, wy, ww, wh, COLOR_RGB(56, 189, 248));
+    if (full_redraw) {
+        /* 1. Desktop Wallpaper Background: Rich Deep Blue Wallpaper */
+        fb_fill_rect(0, 0, (int)sw, (int)sh, COLOR_RGB(18, 38, 70));
 
-    /* Window Title Bar (Height: 30px) */
-    fb_fill_rect(wx, wy, ww, 30, g_win_title_bg);
-    fb_draw_rect(wx, wy, ww, 30, COLOR_RGB(51, 65, 85));
+        /* 2. Top Taskbar / Status Panel (Height: 36px) */
+        fb_fill_rect(0, 0, (int)sw, 36, COLOR_RGB(12, 20, 36));
+        fb_draw_rect(0, 0, (int)sw, 36, COLOR_RGB(56, 189, 248));
 
-    /* Window Buttons (Red, Yellow, Green) */
-    fb_fill_rect(wx + 10, wy + 9, 12, 12, COLOR_RGB(239, 68, 68));
-    fb_fill_rect(wx + 28, wy + 9, 12, 12, COLOR_RGB(234, 179, 8));
-    fb_fill_rect(wx + 46, wy + 9, 12, 12, COLOR_RGB(34, 197, 94));
+        /* Start Button */
+        fb_fill_rect(6, 4, 120, 28, COLOR_RGB(14, 165, 233));
+        fb_draw_string_utf8(16, 10, "[ ZERO OS ]", COLOR_RGB(10, 15, 28), 0);
 
-    /* Window Title */
-    fb_draw_string(wx + 70, wy + 7, "ZeroTerminal — user@linuxoszero (x86_64 Titan Edition)", COLOR_RGB(255, 255, 255), 0);
+        /* System Status Indicators */
+        fb_draw_string_utf8(140, 10, "LinuxOSZero Titan v1.1.0 (x86_64)", COLOR_RGB(255, 255, 255), 0);
 
-    /* 4. Terminal Output Buffer Rendering */
+        int lay = keyboard_get_layout();
+        const char *lay_str = (lay == KBD_LAYOUT_RU) ? "[ Раскладка: RU ]" : "[ Layout: EN ]";
+        fb_fill_rect((int)sw - 420, 4, 140, 28, COLOR_RGB(30, 41, 59));
+        fb_draw_string_utf8((int)sw - 410, 10, lay_str, g_accent, 0);
+
+        const char *drv_str = "VBox: VMMDev + VMSVGA [OK]";
+        fb_draw_string_utf8((int)sw - 265, 10, drv_str, g_success_col, 0);
+
+        /* Left Desktop Icons */
+        fb_fill_rect(16, 50, 88, 54, COLOR_RGB(12, 20, 36));
+        fb_draw_rect(16, 50, 88, 54, COLOR_RGB(56, 189, 248));
+        fb_draw_string_utf8(24, 68, "Терминал", COLOR_RGB(255, 255, 255), 0);
+
+        fb_fill_rect(16, 114, 88, 54, COLOR_RGB(12, 20, 36));
+        fb_draw_rect(16, 114, 88, 54, COLOR_RGB(34, 197, 94));
+        fb_draw_string_utf8(20, 132, "Установщик", COLOR_RGB(34, 197, 94), 0);
+
+        fb_fill_rect(16, 178, 88, 54, COLOR_RGB(12, 20, 36));
+        fb_draw_rect(16, 178, 88, 54, COLOR_RGB(234, 179, 8));
+        fb_draw_string_utf8(20, 196, "Драйверы", COLOR_RGB(234, 179, 8), 0);
+
+        /* 3. Terminal Window Frame */
+        fb_fill_rect(wx + 4, wy + 4, ww, wh, COLOR_RGB(5, 8, 14));
+        fb_fill_rect(wx, wy, ww, wh, g_win_bg);
+        fb_draw_rect(wx, wy, ww, wh, COLOR_RGB(56, 189, 248));
+
+        /* Window Title Bar (Height: 30px) */
+        fb_fill_rect(wx, wy, ww, 30, g_win_title_bg);
+        fb_draw_rect(wx, wy, ww, 30, COLOR_RGB(51, 65, 85));
+
+        /* Window Buttons (Red, Yellow, Green) */
+        fb_fill_rect(wx + 10, wy + 9, 12, 12, COLOR_RGB(239, 68, 68));
+        fb_fill_rect(wx + 28, wy + 9, 12, 12, COLOR_RGB(234, 179, 8));
+        fb_fill_rect(wx + 46, wy + 9, 12, 12, COLOR_RGB(34, 197, 94));
+
+        /* Window Title */
+        fb_draw_string_utf8(wx + 70, wy + 7, "ZeroTerminal — user@linuxoszero (x86_64 Titan Edition)", COLOR_RGB(255, 255, 255), 0);
+    }
+
+    /* 4. Terminal Output Buffer Rendering (Clear interior only) */
     int pad_x = wx + 14;
     int pad_y = wy + 40;
     int max_visible = (wh - 65) / 18;
@@ -520,11 +586,14 @@ static void render_gui_frame(void) {
         start_line = kterm_line_count - max_visible;
     }
 
+    /* Clear output text area */
+    fb_fill_rect(wx + 2, wy + 32, ww - 4, wh - 34, g_win_bg);
+
     int row = 0;
     for (int i = start_line; i < kterm_line_count; i++) {
         int ly = pad_y + row * 18;
         if (ly + 18 > wy + wh - 24) break;
-        fb_draw_string(pad_x, ly, kterm_buffer[i], kterm_colors[i], 0);
+        fb_draw_string_utf8(pad_x, ly, kterm_buffer[i], kterm_colors[i], 0);
         row++;
     }
 
@@ -532,11 +601,11 @@ static void render_gui_frame(void) {
     int in_y = pad_y + row * 18;
     if (in_y + 18 <= wy + wh) {
         const char *prompt = "user@linuxoszero:~$ ";
-        fb_draw_string(pad_x, in_y, prompt, g_accent, 0);
+        fb_draw_string_utf8(pad_x, in_y, prompt, g_accent, 0);
 
         int prompt_len = 19; /* 19 chars * 8 = 152 px */
         int in_text_x = pad_x + prompt_len * 8;
-        fb_draw_string(in_text_x, in_y, kinput_buf, g_text_primary, 0);
+        fb_draw_string_utf8(in_text_x, in_y, kinput_buf, g_text_primary, 0);
 
         /* Blinking Cursor */
         g_blink = (g_blink + 1) % 40;
@@ -654,6 +723,10 @@ void kernel_main(void) {
     /* Initialize on-screen Graphical Terminal */
     init_kterminal();
 
+    /* Initial Full Desktop Render */
+    render_gui_frame(true);
+    g_need_full_redraw = false;
+
     /* Step 8: Interactive Graphical Desktop & Terminal Event Loop */
     while (1) {
         /* Poll PS/2 keyboard buffer */
@@ -702,7 +775,8 @@ void kernel_main(void) {
 
         /* Render GUI Frame to Framebuffer */
         if (g_gui_active) {
-            render_gui_frame();
+            render_gui_frame(g_need_full_redraw);
+            g_need_full_redraw = false;
         }
 
         /* Halt until next interrupt to conserve CPU */
