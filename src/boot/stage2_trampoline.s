@@ -4,30 +4,20 @@
  * Loaded by boot.s at physical 0x10000 (real mode, CS=0x1000, IP=0).
  *
  * ============================================================================
- * CRITICAL VIRTUALBOX & X86_64 FIX:
+ * VIRTUALBOX & X86_64 4-LEVEL PAGING IMPLEMENTATION:
  * In x86_64 Long Mode (4-level paging / PAE), every entry in PML4, PDPT,
- * Page Directory (PD), and Page Table (PT) is 64-BIT (8 BYTES).
+ * Page Directory (PD), and Page Table (PT) is strictly 64-BIT (8 BYTES).
  *
- * Earlier iterations had `add edi, 4` in the PD fill loop, which corrupted
- * the top 32 bits of every Page Directory Entry with the lower 32 bits of
- * the subsequent entry! When paging was enabled, the CPU walked invalid
- * page frames (address > 500 TB), causing immediate Guru Meditation /
- * Page Fault / Triple Fault on boot. VirtualBox's GUI frontend DisplayWrap
- * then received E_UNEXPECTED (0x8000ffff) / -52 (VERR_NOT_SUPPORTED) because
- * the VM died before video modesetting completed.
- *
- * FIX:
- * Every table sits on its own 4 KiB boundary:
- *     PML4  @ 0x9000 (8 bytes per entry)
- *     PDPT  @ 0xA000 (8 bytes per entry)
+ * We initialize page tables at fixed 4KB aligned physical addresses:
+ *     PML4  @ 0x9000 (Entry 0 -> PDPT @ 0xA000)
+ *     PDPT  @ 0xA000 (Entries 0..3 -> PD0..PD3)
  *     PD0   @ 0xB000 (512 x 8-byte PDEs = 0x00000000 - 0x3FFFFFFF, 1 GiB)
  *     PD1   @ 0xC000 (512 x 8-byte PDEs = 0x40000000 - 0x7FFFFFFF, 1 GiB)
  *     PD2   @ 0xD000 (512 x 8-byte PDEs = 0x80000000 - 0xBFFFFFFF, 1 GiB)
  *     PD3   @ 0xE000 (512 x 8-byte PDEs = 0xC0000000 - 0xFFFFFFFF, 1 GiB)
  *
- * Total 4 GiB identity mapped using 2 MiB large pages (PS=1, bit 7).
- * Framebuffer at 0xE0000000 and all hardware MMIO / RAM in 0..4GB are
- * cleanly reachable.
+ * All writes use register-indirect [edi] addressing to prevent any
+ * assembler RIP-relative offset misinterpretations in 64-bit/32-bit modes.
  * ============================================================================
  */
 
@@ -72,10 +62,7 @@ pm32:
     mov gs, ax
 
     /* ---- Detect 64-bit (long mode) support via CPUID ----
-       If the guest is configured as 32-bit only (VirtualBox: Enable64bit=0,
-       Long Mode=0), enabling PAE below raises #GP -> double/triple fault.
-       Check CPUID 0x80000001 bit 29 (LM) first and print a clear message
-       instead of crashing. */
+       Check CPUID 0x80000001 bit 29 (LM) first. */
     mov eax, 0x80000000
     cpuid
     cmp eax, 0x80000001
@@ -86,13 +73,11 @@ pm32:
     jnz .longmode_ok
 
 .no_longmode:
-    /* Write "REQUIRES 64-BIT CPU / enable 64-bit in VirtualBox" to VGA text
-       buffer at 0xB8000 (row 10, columns 0..68), cyan on black. */
     mov edi, 0xB8000 + 10 * 160
     mov eax, 0x0B000000
     mov byte ptr [edi], 'L'
     mov byte ptr [edi+1], 0x0B
-    lea esi, [msg_no64]        /* DS=0x10 flat, so esi = physical addr of msg */
+    lea esi, [msg_no64]
     cld
 .next_c:
     lodsb
@@ -114,28 +99,27 @@ pm32:
     cld
     rep stosd
 
-    /* ---- PML4 @ 0x9000 : [0] -> PDPT @ 0xA000 (frame 0xA000, present,rw) ----
-       PML4E is 8 bytes: low dword = 0x0000A003, high dword = 0x00000000 */
-    mov dword ptr [0x9000], 0x0000A003
-    mov dword ptr [0x9004], 0x00000000
+    /* ---- PML4 @ 0x9000 : [0] -> PDPT @ 0xA000 (frame 0xA000, present, rw) ----
+       Using absolute register-indirect addressing via EDI */
+    mov edi, 0x9000
+    mov dword ptr [edi], 0x0000A003
+    mov dword ptr [edi + 4], 0x00000000
 
     /* ---- PDPT @ 0xA000 : [0..3] -> PD0..PD3 (8 bytes each) ---- */
-    mov dword ptr [0xA000], 0x0000B003   /* PD0 @ 0xB000 */
-    mov dword ptr [0xA004], 0x00000000
-    mov dword ptr [0xA008], 0x0000C003   /* PD1 @ 0xC000 */
-    mov dword ptr [0xA00C], 0x00000000
-    mov dword ptr [0xA010], 0x0000D003   /* PD2 @ 0xD000 */
-    mov dword ptr [0xA014], 0x00000000
-    mov dword ptr [0xA018], 0x0000E003   /* PD3 @ 0xE000 */
-    mov dword ptr [0xA01C], 0x00000000
+    mov edi, 0xA000
+    mov dword ptr [edi + 0],  0x0000B003   /* PD0 @ 0xB000 */
+    mov dword ptr [edi + 4],  0x00000000
+    mov dword ptr [edi + 8],  0x0000C003   /* PD1 @ 0xC000 */
+    mov dword ptr [edi + 12], 0x00000000
+    mov dword ptr [edi + 16], 0x0000D003   /* PD2 @ 0xD000 */
+    mov dword ptr [edi + 20], 0x00000000
+    mov dword ptr [edi + 24], 0x0000E003   /* PD3 @ 0xE000 */
+    mov dword ptr [edi + 28], 0x00000000
 
     /* ---- Fill PD0 @ 0xB000 with 512 x 2 MiB pages (PS=1, present, rw) ----
-       Each 64-bit PDE is 8 bytes:
-       [edi]   = (index * 2MB) | 0x83 (Present, Writable, HugePage 2MB)
-       [edi+4] = 0x00000000
-       edi is incremented by 8! */
-    mov edi, 0xB000          /* start of PD0 */
-    mov eax, 0x00000083      /* first 2 MiB page (0x00000000) */
+       Maps 0x00000000 - 0x3FFFFFFF (0 - 1 GiB) */
+    mov edi, 0xB000
+    mov eax, 0x00000083
     mov ecx, 512
 .fill_pd0:
     mov dword ptr [edi], eax
@@ -144,7 +128,7 @@ pm32:
     add edi, 8
     loop .fill_pd0
 
-    /* ---- Fill PD1 @ 0xC000 (base 0x40000000) ---- */
+    /* ---- Fill PD1 @ 0xC000 (base 0x40000000 - 0x7FFFFFFF, 1 - 2 GiB) ---- */
     mov edi, 0xC000
     mov eax, 0x40000083
     mov ecx, 512
@@ -155,7 +139,7 @@ pm32:
     add edi, 8
     loop .fill_pd1
 
-    /* ---- Fill PD2 @ 0xD000 (base 0x80000000) ---- */
+    /* ---- Fill PD2 @ 0xD000 (base 0x80000000 - 0xBFFFFFFF, 2 - 3 GiB) ---- */
     mov edi, 0xD000
     mov eax, 0x80000083
     mov ecx, 512
@@ -166,7 +150,7 @@ pm32:
     add edi, 8
     loop .fill_pd2
 
-    /* ---- Fill PD3 @ 0xE000 (base 0xC0000000) ---- */
+    /* ---- Fill PD3 @ 0xE000 (base 0xC0000000 - 0xFFFFFFFF, 3 - 4 GiB) ---- */
     mov edi, 0xE000
     mov eax, 0xC0000083
     mov ecx, 512
@@ -177,12 +161,12 @@ pm32:
     add edi, 8
     loop .fill_pd3
 
-    /* ---- Enable PAE in CR4 (bit 5) and PGE (bit 7) ---- */
+    /* ---- Enable PAE in CR4 (bit 5) ---- */
     mov eax, cr4
     or eax, 0x20
     mov cr4, eax
 
-    /* ---- Load PML4 address into CR3 ---- */
+    /* ---- Load PML4 physical base address into CR3 ---- */
     mov eax, 0x9000
     mov cr3, eax
 
@@ -236,9 +220,5 @@ gdt_desc:
     .word gdt_end - gdt - 1
     .long 0x10000 + (gdt - _start)   /* linear base = physical address of GDT */
 
-/* Clear on-screen message shown when the guest CPU is not 64-bit capable
-   (e.g. VirtualBox VM created as 32-bit "Other", Enable64bit=0, Long Mode=0).
-   Reached via lea in pm32; DS=0x10 flat so the VMA equals the physical
-   address where the kernel is loaded (0x10000+). */
 msg_no64:
     .asciz "LinuxOSZero needs a 64-bit CPU. Enable 64-bit in VirtualBox: create the VM as 'Other Linux (64-bit)'. Booting failed."

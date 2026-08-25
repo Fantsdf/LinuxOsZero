@@ -5,7 +5,7 @@
 set -e
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ISO_PATH="$REPO_ROOT/dist/LinuxOSZero-v1.1.0-x86_64.iso"
+ISO_PATH="$REPO_ROOT/dist/LinuxZero.iso"
 
 echo "=================================================="
 echo "      LinuxOSZero VirtualBox / QEMU Test Tool     "

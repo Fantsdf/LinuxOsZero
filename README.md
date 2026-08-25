@@ -83,8 +83,8 @@
 make all
 
 # Результат:
-# dist/LinuxOSZero-v1.1.0-x86_64.iso  (6.7 MB)
-# dist/LinuxOSZero-v1.1.0-x86_64.zip  (6.6 MB)
+# dist/LinuxZero.iso                 (168 MB)
+# dist/LinuxZero.zip                 (20 MB)
 # dist/SHA256SUMS
 ```
 

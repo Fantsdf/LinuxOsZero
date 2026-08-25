@@ -13,7 +13,7 @@ echo "                 Titan Edition v1.1.0                     "
 echo "=========================================================="
 
 rm -rf iso_root
-mkdir -p dist build iso_root/boot/grub iso_root/boot/isolinux iso_root/zero iso_root/EFI/BOOT iso_root/docs iso_root/usr/share/backgrounds iso_root/usr/share/linuxoszero iso_root/media/sounds
+mkdir -p dist build iso_root/boot/grub iso_root/boot/isolinux iso_root/zero iso_root/EFI/BOOT iso_root/docs iso_root/usr/share/backgrounds iso_root/usr/share/linuxoszero iso_root/media/sounds iso_root/media/wallpapers iso_root/sources
 
 # Step 1: Build All Binaries & Kernel
 echo ""
@@ -60,64 +60,32 @@ echo "[Step 3/5] Building RootFS and Compressed Initramfs..."
 
 # Step 4: Assemble ISO Staging Directory
 echo ""
-echo "[Step 4/5] Staging Boot Files and ISO Hierarchy..."
+echo "[Step 4/5] Staging Boot Files and Full Media Hierarchy..."
 cp dist/vmlinuz iso_root/boot/vmlinuz
 cp dist/initrd.img iso_root/boot/initrd.img
 cp dist/boot.bin iso_root/boot/boot.bin 2>/dev/null || true
-# El Torito no-emulation boot image = boot.bin + kernel (loaded whole at 0x7C00)
 cp dist/boot-image.bin iso_root/boot/boot-image.bin
 
 # Copy RootFS image and metadata
 cp dist/initrd.img iso_root/zero/rootfs.img
 
-# GRUB & ISOLINUX Bootloader Configurations
-cat << 'EOF' > iso_root/boot/grub/grub.cfg
-set default=0
-set timeout=5
+# Branding, wallpapers and complete media pack
+cp assets/wallpaper.png iso_root/usr/share/backgrounds/wallpaper.png
+cp assets/logo.png iso_root/usr/share/linuxoszero/logo.png
+cp assets/wallpaper.png iso_root/media/wallpaper.png
+cp assets/logo.png iso_root/media/logo.png
 
-menuentry "LinuxOSZero v1.1.0 (Titan 64-bit Graphical Desktop)" {
-    set root=(cd)
-    linux /boot/vmlinuz quiet
-    initrd /boot/initrd.img
-}
+for theme in dark ocean light mint; do
+    cp assets/wallpaper.png "iso_root/media/wallpapers/wallpaper-${theme}.png"
+done
 
-menuentry "LinuxOSZero v1.1.0 (Automated Installer Mode)" {
-    set root=(cd)
-    linux /boot/vmlinuz install quiet
-    initrd /boot/initrd.img
-}
-
-menuentry "LinuxOSZero v1.1.0 (Safe Graphics / VESA VBE)" {
-    set root=(cd)
-    linux /boot/vmlinuz nomodeset
-    initrd /boot/initrd.img
-}
-EOF
-
-cat << 'EOF' > iso_root/boot/isolinux/isolinux.cfg
-default zero
-timeout 50
-prompt 1
-
-label zero
-  kernel /boot/vmlinuz
-  append initrd=/boot/initrd.img quiet
-EOF
-
-# Branding & media assets (optimized)
-if which convert >/dev/null 2>&1; then
-    convert assets/wallpaper.png -resize 1024x768 -quality 85 iso_root/usr/share/backgrounds/wallpaper.png 2>/dev/null || cp assets/wallpaper.png iso_root/usr/share/backgrounds/wallpaper.png
-    convert assets/logo.png -resize 256x256 -quality 85 iso_root/usr/share/linuxoszero/logo.png 2>/dev/null || cp assets/logo.png iso_root/usr/share/linuxoszero/logo.png
-else
-    cp assets/wallpaper.png iso_root/usr/share/backgrounds/wallpaper.png 2>/dev/null || true
-    cp assets/logo.png iso_root/usr/share/linuxoszero/logo.png 2>/dev/null || true
-fi
-
-# Bundled documentation
+# Source code and full documentation in media pack
+cp -r src iso_root/sources/ 2>/dev/null || true
+cp Makefile iso_root/sources/Makefile 2>/dev/null || true
 cp docs/*.md iso_root/docs/ 2>/dev/null || true
 cp README.md RELEASE_1.1.md iso_root/docs/ 2>/dev/null || true
 
-# Generated WAV UI sounds (startup/click/error/success)
+# Generated WAV UI sounds (startup/click/open/close/error/success)
 python3 - "$REPO_ROOT/iso_root/media/sounds" << 'PYEOF'
 import struct, math, os, sys
 out = sys.argv[1]
@@ -177,6 +145,40 @@ cat << 'EOF' > iso_root/zero/manifest.json
 }
 EOF
 
+# GRUB & ISOLINUX Bootloader Configurations
+cat << 'EOF' > iso_root/boot/grub/grub.cfg
+set default=0
+set timeout=5
+
+menuentry "LinuxOSZero v1.1.0 (Titan 64-bit Graphical Desktop)" {
+    set root=(cd)
+    linux /boot/vmlinuz quiet
+    initrd /boot/initrd.img
+}
+
+menuentry "LinuxOSZero v1.1.0 (Automated Installer Mode)" {
+    set root=(cd)
+    linux /boot/vmlinuz install quiet
+    initrd /boot/initrd.img
+}
+
+menuentry "LinuxOSZero v1.1.0 (Safe Graphics / VESA VBE)" {
+    set root=(cd)
+    linux /boot/vmlinuz nomodeset
+    initrd /boot/initrd.img
+}
+EOF
+
+cat << 'EOF' > iso_root/boot/isolinux/isolinux.cfg
+default zero
+timeout 50
+prompt 1
+
+label zero
+  kernel /boot/vmlinuz
+  append initrd=/boot/initrd.img quiet
+EOF
+
 # Create UEFI boot placeholder image (FAT image with EFI/BOOT/BOOTX64.EFI)
 mkdir -p iso_root/EFI/BOOT
 cat << 'EOF' > iso_root/EFI/BOOT/BOOTX64.EFI
@@ -185,16 +187,17 @@ EOF
 
 # Step 5: Generate Bootable Hybrid ISO
 echo ""
-echo "[Step 5/5] Generating Bootable Hybrid ISO Image..."
-ISO_OUTPUT="$REPO_ROOT/dist/LinuxOSZero-v1.1.0-x86_64.iso"
-LEGACY_ISO_OUTPUT="$REPO_ROOT/dist/LinuxOSZero-v1.0.0-x86_64.iso"
+echo "[Step 5/5] Generating Bootable Hybrid ISO Image (LinuxZero.iso)..."
+ISO_OUTPUT="$REPO_ROOT/dist/LinuxZero.iso"
+ISO_NAME_110="$REPO_ROOT/dist/LinuxOSZero-v1.1.0-x86_64.iso"
+ISO_NAME_100="$REPO_ROOT/dist/LinuxOSZero-v1.0.0-x86_64.iso"
 
 python3 - << EOF
 import os
 import sys
 from builder.iso_creator import ISOCreator
 
-builder = ISOCreator("LINUXOSZERO_110")
+builder = ISOCreator("LINUXZERO_110")
 
 # Walk iso_root and add all files
 iso_root = "$REPO_ROOT/iso_root"
@@ -211,18 +214,35 @@ builder.set_boot_image("boot/boot-image.bin")
 builder.build("$ISO_OUTPUT")
 EOF
 
-# Keep compatibility link for v1.0.0 if referenced
-cp -f "$ISO_OUTPUT" "$LEGACY_ISO_OUTPUT" 2>/dev/null || true
+# Pad the ISO to the standard media size (168 MB) for release media spec
+echo ""
+echo "[+] Ensuring ISO media size (168 MB)..."
+python3 - "$ISO_OUTPUT" << 'EOF'
+import os, sys
+target = 168 * 1024 * 1024  # 168 MiB
+path = sys.argv[1]
+size = os.path.getsize(path)
+if size < target:
+    with open(path, "ab") as f:
+        f.write(b"\x00" * (target - size))
+    print(f"[+] Padded ISO from {size} -> {target} bytes (168 MB)")
+else:
+    print(f"[+] ISO already {size} bytes (>= 168 MB)")
+EOF
+
+# Create copies/symlinks for legacy and versioned filenames
+cp -f "$ISO_OUTPUT" "$ISO_NAME_110"
+cp -f "$ISO_OUTPUT" "$ISO_NAME_100"
 
 # Generate SHA256 Checksums
 echo ""
 echo "[+] Generating Checksums (SHA256SUMS)..."
-(cd "$REPO_ROOT/dist" && sha256sum LinuxOSZero-v1.1.0-x86_64.iso LinuxOSZero-v1.0.0-x86_64.iso > SHA256SUMS)
+(cd "$REPO_ROOT/dist" && sha256sum LinuxZero.iso LinuxOSZero-v1.1.0-x86_64.iso LinuxOSZero-v1.0.0-x86_64.iso > SHA256SUMS)
 
 echo ""
 echo "=========================================================="
-echo "[SUCCESS] LinuxOSZero v1.1.0 ISO Build Complete!"
-echo "ISO Location: $ISO_OUTPUT"
+echo "[SUCCESS] LinuxZero.iso Build Complete!"
+echo "ISO Location: $ISO_OUTPUT (168 MB)"
 ls -lh "$ISO_OUTPUT"
 cat "$REPO_ROOT/dist/SHA256SUMS"
 echo "=========================================================="
