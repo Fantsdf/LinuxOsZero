@@ -62,9 +62,10 @@ static int vbe_graphics_active(void) {
 /* Fill the linear framebuffer with a vertical gradient so the display is not
  * black when a VBE graphics mode is active (VirtualBox std VGA LFB = 0xE0000000). */
 static void draw_framebuffer_gradient(void) {
-    uint32_t *fb = g_sysinfo.framebuffer;
+    uint8_t *fb = (uint8_t *)g_sysinfo.framebuffer;
     uint32_t w = g_sysinfo.screen_width;
     uint32_t h = g_sysinfo.screen_height;
+    uint32_t pitch = g_sysinfo.screen_pitch ? g_sysinfo.screen_pitch : (w * 4);
     if (!fb || w == 0 || h == 0) return;
 
     for (uint32_t y = 0; y < h; y++) {
@@ -73,8 +74,9 @@ static void draw_framebuffer_gradient(void) {
         uint8_t g = (uint8_t)(0x0F + (y * 0x0C) / h);
         uint8_t b = (uint8_t)(0x2E + (y * 0x1E) / h);
         uint32_t color = (0xFFu << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+        uint32_t *row = (uint32_t *)(fb + y * pitch);
         for (uint32_t x = 0; x < w; x++) {
-            fb[y * w + x] = color;
+            row[x] = color;
         }
     }
 }
