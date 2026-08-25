@@ -3,12 +3,10 @@
  *
  * This is the El Torito no-emulation boot image. The BIOS loads the whole
  * boot image (boot.bin + kernel64.bin) at 0x7C00. boot.bin occupies 0x7C00
- * and the kernel follows immediately at 0x7E00, so there are NO raw disk
- * reads needed -- this makes booting in VirtualBox/QEMU reliable (fixes the
- * black screen caused by reading the wrong ISO sectors).
+ * and the kernel follows immediately at 0x7E00.
  *
- * Flow: set a video mode -> enable A20 -> copy kernel 0x7E00->0x10000 ->
- *       far jump to 0x10000 (trampoline switches to 64-bit long mode).
+ * Backward copy (std; rep movsb) is used to copy the 64 KB kernel from 0x7E00
+ * to 0x10000 with ZERO overlap corruption.
  */
 
 .code16
@@ -55,8 +53,7 @@ boot_code:
     mov si, offset msg_booting
     call print_str
 
-    /* ---- Try to set a graphics mode. Store info at 0x6000 on success so the
-          64-bit kernel knows it can draw to the framebuffer (0xE0000000). ---- */
+    /* ---- Try to set a graphics mode. Store info at 0x6000 on success. ---- */
     mov byte ptr [0x6000], 0      /* default: text mode */
 
     /* Query Mode 0x118 info into 0x5000 */
@@ -116,17 +113,18 @@ boot_code:
     or al, 2
     out 0x92, al
 
-    /* ---- Copy kernel from 0x7E00 to 0x10000 (64 KB) ----
-       ds:si = 0x07E0:0x0000 , es:di = 0x1000:0x0000 */
+    /* ---- Copy kernel from 0x7E00 to 0x10000 (up to 64 KB) using backward copy ----
+       ds:si = 0x07E0:0xFFFF , es:di = 0x1000:0xFFFF */
     mov ax, 0x07E0
     mov ds, ax
-    xor si, si
     mov ax, 0x1000
     mov es, ax
-    xor di, di
-    xor cx, cx              /* 65536 bytes (cx=0 with rep movsb copies 65536 bytes = 64 KB) */
-    cld
+    mov si, 0xFFFF
+    mov di, 0xFFFF
+    xor cx, cx              /* 65536 bytes */
+    std                     /* backward copy prevents overlap corruption */
     rep movsb
+    cld                     /* restore forward direction */
 
     /* ---- Restore DS=0 for messaging and jump to the trampoline ---- */
     xor ax, ax

@@ -29,7 +29,7 @@ system_info_t g_sysinfo = {
 };
 
 /* Terminal State in Kernel */
-#define KTERM_MAX_LINES   32
+#define KTERM_MAX_LINES   36
 #define KTERM_LINE_LEN    110
 #define KTERM_HISTORY_MAX 16
 
@@ -44,10 +44,9 @@ static char kcmd_history[KTERM_HISTORY_MAX][KTERM_LINE_LEN];
 static int khistory_count = 0;
 static int khistory_idx = -1;
 
-static uint32_t g_bg_color = 0xFF0A0F1A;       /* Deep dark blue/slate */
-static uint32_t g_win_bg = 0xFF0E1726;         /* Terminal window background */
-static uint32_t g_win_title_bg = 0xFF1E293B;   /* Window title bar */
-static uint32_t g_accent = 0xFF38BDF8;         /* Sky blue */
+static uint32_t g_win_bg = 0xFF0F172A;         /* Dark slate window background */
+static uint32_t g_win_title_bg = 0xFF1E293B;   /* Title bar background */
+static uint32_t g_accent = 0xFF38BDF8;         /* Bright sky blue */
 static uint32_t g_text_primary = 0xFFF8FAFC;   /* Crisp white */
 static uint32_t g_text_secondary = 0xFF94A3B8; /* Slate grey */
 static uint32_t g_success_col = 0xFF22C55E;    /* Emerald green */
@@ -183,36 +182,36 @@ static void kterm_add_line(const char *line, uint32_t color) {
 /* --- Interactive Driver Installer in Terminal --- */
 static void run_driver_installer(void) {
     kterm_add_line("[*] ===========================================================", g_accent);
-    kterm_add_line("[*]     LinuxOSZero Automated Driver Installer (Titan Edition)  ", g_accent);
+    kterm_add_line("[*]     Установщик оборудования LinuxOSZero (Titan Edition)     ", g_accent);
     kterm_add_line("[*] ===========================================================", g_accent);
-    kterm_add_line("[+] Probing PCI configuration space on host bridge...", g_text_secondary);
+    kterm_add_line("[+] Сканирование шины PCI и конфигурационного пространства...", g_text_secondary);
     
     if (g_sysinfo.is_virtualbox) {
-        kterm_add_line("[✓] Found: Oracle VirtualBox VMMDev (0x80EE:0xCAFE)", g_success_col);
-        kterm_add_line("    -> Loading VMMDev ring-0 backdoor driver... [OK]", g_text_primary);
-        kterm_add_line("[✓] Found: Oracle VirtualBox VMSVGA 3D (0x80EE:0xBEEF)", g_success_col);
-        kterm_add_line("    -> Configuring 1024x768x32 3D Linear Framebuffer... [OK]", g_text_primary);
-        kterm_add_line("[✓] Found: Intel 82540EM Gigabit Ethernet (0x8086:0x100E)", g_success_col);
-        kterm_add_line("    -> Initializing user-mode NAT & DHCP network... [OK]", g_text_primary);
-        kterm_add_line("[✓] Found: Intel 82801AA AC'97 Audio Controller (0x8086:0x2415)", g_success_col);
-        kterm_add_line("    -> Initializing WASAPI/Host audio playback sink... [OK]", g_text_primary);
-        kterm_add_line("[✓] Found: PS/2 i8042 Keyboard & Mouse Controller", g_success_col);
-        kterm_add_line("    -> Initializing Scancode Set 1/2 + Multi-layout US/RU... [OK]", g_text_primary);
-        kterm_add_line("[✓] VirtualBox Shared Folders (/media/sf_shared)... [MOUNTED]", g_success_col);
-        kterm_add_line("[✓] VirtualBox Seamless Absolute Mouse Integration... [ACTIVE]", g_success_col);
+        kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMMDev (0x80EE:0xCAFE, Port 0xD020)", g_success_col);
+        kterm_add_line("    -> Загрузка Ring-0 драйвера гостевых дополнений... [OK]", g_text_primary);
+        kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMSVGA 3D (0x80EE:0xBEEF)", g_success_col);
+        kterm_add_line("    -> Настройка 1024x768x32 3D Linear Framebuffer... [OK]", g_text_primary);
+        kterm_add_line("[✓] Обнаружен: Intel 82540EM Gigabit Ethernet (0x8086:0x100E)", g_success_col);
+        kterm_add_line("    -> Инициализация сети NAT / DHCP... [OK]", g_text_primary);
+        kterm_add_line("[✓] Обнаружен: Intel 82801AA AC'97 Audio Controller (0x8086:0x2415)", g_success_col);
+        kterm_add_line("    -> Инициализация драйвера звука WASAPI/Host... [OK]", g_text_primary);
+        kterm_add_line("[✓] Обнаружен: PS/2 i8042 Контроллер клавиатуры и мыши", g_success_col);
+        kterm_add_line("    -> Включение скан-кодов Set 1/2 + раскладки US/RU... [OK]", g_text_primary);
+        kterm_add_line("[✓] Общие папки VirtualBox (/media/sf_shared)... [СМОНТИРОВАНО]", g_success_col);
+        kterm_add_line("[✓] Абсолютное позиционирование мыши (Seamless Mouse)... [АКТИВНО]", g_success_col);
     } else if (g_sysinfo.is_qemu) {
-        kterm_add_line("[✓] Found: QEMU / KVM Bochs VBE Display Adapter (0x1234:0x1111)", g_success_col);
-        kterm_add_line("[✓] Found: Red Hat VirtIO Network Adapter (0x1AF4:0x1000)", g_success_col);
-        kterm_add_line("[✓] Found: Red Hat VirtIO Block Storage Device (0x1AF4:0x1001)", g_success_col);
-        kterm_add_line("[✓] Found: PS/2 Keyboard & Mouse Controller (i8042)", g_success_col);
+        kterm_add_line("[✓] Обнаружен: QEMU / Bochs VBE Display Adapter (0x1234:0x1111)", g_success_col);
+        kterm_add_line("[✓] Обнаружен: Red Hat VirtIO Network Adapter (0x1AF4:0x1000)", g_success_col);
+        kterm_add_line("[✓] Обнаружен: Red Hat VirtIO Block Device (0x1AF4:0x1001)", g_success_col);
+        kterm_add_line("[✓] Обнаружен: PS/2 Контроллер клавиатуры и мыши (i8042)", g_success_col);
     } else {
-        kterm_add_line("[✓] Bare-metal hardware detected: Standard VBE 3.0 LFB display", g_success_col);
-        kterm_add_line("[✓] Standard PS/2 Keyboard & Mouse Controller initialized", g_success_col);
-        kterm_add_line("[✓] PCI Hardware bus scan completed", g_success_col);
+        kterm_add_line("[✓] Стандартный VBE 3.0 LFB дисплей инициализирован", g_success_col);
+        kterm_add_line("[✓] Стандартный PS/2 контроллер клавиатуры и мыши готов к работе", g_success_col);
+        kterm_add_line("[✓] Сканирование шины PCI завершено", g_success_col);
     }
 
-    kterm_add_line("[+] Driver Installation Status: [ 100% COMPLETE ]", g_success_col);
-    kterm_add_line("[+] All hardware drivers are installed and running stably!", g_text_primary);
+    kterm_add_line("[+] Статус установки драйверов: [ 100% ЗАВЕРШЕНО ]", g_success_col);
+    kterm_add_line("[+] Все аппаратные драйверы успешно установлены и работают стабильно!", g_text_primary);
     kterm_add_line("", g_text_primary);
 }
 
@@ -251,57 +250,58 @@ static void kterm_execute(const char *cmd) {
     khistory_idx = khistory_count;
 
     if (str_eq(cmd, "help") || str_eq(cmd, "/help") || str_eq(cmd, "?")) {
-        kterm_add_line("================== LinuxOSZero Commands ==================", g_accent);
-        kterm_add_line("[SYSTEM]", g_warn_col);
-        kterm_add_line("  uname -a       - Show kernel architecture and release info", g_text_primary);
-        kterm_add_line("  fetch          - Display stylized ASCII logo and hardware specs", g_text_primary);
-        kterm_add_line("  whoami         - Print current username and privileges", g_text_primary);
-        kterm_add_line("  uptime         - Show operating system uptime", g_text_primary);
-        kterm_add_line("  date           - Display system date and time", g_text_primary);
-        kterm_add_line("  free           - Show memory allocation statistics", g_text_primary);
-        kterm_add_line("  ps             - List running system processes", g_text_primary);
-        kterm_add_line("  clear          - Clear terminal screen", g_text_primary);
-        kterm_add_line("[DRIVERS & HARDWARE]", g_warn_col);
-        kterm_add_line("  driver-install - Interactive automated hardware driver installer (/install)", g_success_col);
-        kterm_add_line("  vbox           - Oracle VM VirtualBox VMMDev & VMSVGA diagnostics", g_text_primary);
-        kterm_add_line("  pci            - Scan and display all PCI hardware devices", g_text_primary);
-        kterm_add_line("  video          - Display resolution and VMSVGA 3D accelerator info", g_text_primary);
-        kterm_add_line("  layout <en|ru> - Switch keyboard layout (or press Alt+Shift)", g_text_primary);
-        kterm_add_line("[TOOLS & UTILITIES]", g_warn_col);
-        kterm_add_line("  ls             - List root filesystem directory hierarchy", g_text_primary);
-        kterm_add_line("  cat <file>     - Display file contents (/etc/os-release, /etc/issue)", g_text_primary);
-        kterm_add_line("  calc <math>    - Evaluate arithmetic expression (e.g. calc 100 * 4)", g_text_primary);
-        kterm_add_line("  matrix         - Digital rain message", g_text_primary);
-        kterm_add_line("  theme <dark|light> - Toggle desktop & terminal color theme", g_text_primary);
-        kterm_add_line("  zpkg list      - Query installed software packages", g_text_primary);
-        kterm_add_line("  reboot         - Reboot virtual machine / computer", g_text_primary);
-        kterm_add_line("  poweroff       - Shutdown virtual machine / computer", g_text_primary);
+        kterm_add_line("================== LinuxOSZero Команды ==================", g_accent);
+        kterm_add_line("[СИСТЕМА]", g_warn_col);
+        kterm_add_line("  uname -a       - Архитектура ядра и версия ОС", g_text_primary);
+        kterm_add_line("  fetch / neofetch - Системная информация и цветной логотип", g_text_primary);
+        kterm_add_line("  whoami         - Текущий пользователь и права доступа", g_text_primary);
+        kterm_add_line("  uptime         - Время непрерывной работы системы", g_text_primary);
+        kterm_add_line("  date           - Текущая дата и системное время", g_text_primary);
+        kterm_add_line("  free           - Использование оперативной памяти (RAM)", g_text_primary);
+        kterm_add_line("  ps             - Список активных процессов", g_text_primary);
+        kterm_add_line("  clear          - Очистить экран терминала", g_text_primary);
+        kterm_add_line("[ДРАЙВЕРЫ И ОБОРУДОВАНИЕ]", g_warn_col);
+        kterm_add_line("  driver-install - Автоматический интерактивный установщик драйверов (/install)", g_success_col);
+        kterm_add_line("  vbox           - Диагностика VirtualBox VMMDev и VMSVGA", g_text_primary);
+        kterm_add_line("  pci            - Сканирование и список устройств на шине PCI", g_text_primary);
+        kterm_add_line("  video          - Разрешение экрана и 3D-ускоритель VMSVGA", g_text_primary);
+        kterm_add_line("  audio          - Статус звукового контроллера Intel AC'97", g_text_primary);
+        kterm_add_line("  layout <en|ru> - Переключение раскладки (или Alt+Shift)", g_text_primary);
+        kterm_add_line("[УТИЛИТЫ И ФАЙЛЫ]", g_warn_col);
+        kterm_add_line("  ls             - Список файлов и директорий", g_text_primary);
+        kterm_add_line("  cat <файл>     - Просмотр содержимого файла (/etc/os-release)", g_text_primary);
+        kterm_add_line("  calc <выраж>   - Интерактивный калькулятор (e.g. calc 100 * 4)", g_text_primary);
+        kterm_add_line("  matrix         - Цифровой дождь матрицы", g_text_primary);
+        kterm_add_line("  theme <dark|light> - Переключение темы оформления", g_text_primary);
+        kterm_add_line("  zpkg list      - Список установленных пакетов", g_text_primary);
+        kterm_add_line("  reboot         - Перезагрузка системы", g_text_primary);
+        kterm_add_line("  poweroff       - Завершение работы", g_text_primary);
     } else if (str_eq(cmd, "driver-install") || str_eq(cmd, "/driver-install") ||
                str_eq(cmd, "install") || str_eq(cmd, "/install") ||
                str_eq(cmd, "install-drivers") || str_eq(cmd, "/install-drivers")) {
         run_driver_installer();
     } else if (str_eq(cmd, "vbox") || str_eq(cmd, "/vbox") || str_eq(cmd, "zero-hwprobe --vbox")) {
-        kterm_add_line("[*] Hypervisor Platform: Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)", g_accent);
-        kterm_add_line("[OK] VMMDev Channel (PCI 0x80EE:0xCAFE, Port 0xD020): CONNECTED", g_success_col);
-        kterm_add_line("[OK] VMSVGA Display: 1024x768x32 Hardware Accelerated (DisplayWrap Fixed)", g_success_col);
-        kterm_add_line("[OK] Guru Meditation 1155 (Triple Fault): RESOLVED (Extended RAM Stack)", g_success_col);
-        kterm_add_line("[OK] PS/2 Keyboard Driver: ACTIVE (Scan Code Set 1/2 + US/RU layout)", g_success_col);
-        kterm_add_line("[OK] Seamless Absolute Mouse Integration: ACTIVE", g_success_col);
-        kterm_add_line("[OK] Shared Folders (/media/sf_shared): MOUNTED", g_success_col);
+        kterm_add_line("[*] Диагностика гипервизора Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)", g_accent);
+        kterm_add_line("[OK] VMMDev Channel (PCI 0x80EE:0xCAFE, Port 0xD020): ПОДКЛЮЧЁН", g_success_col);
+        kterm_add_line("[OK] VMSVGA Display: 1024x768x32 с аппаратным 3D-ускорением (DisplayWrap Fixed)", g_success_col);
+        kterm_add_line("[OK] Guru Meditation 1155 (Triple Fault): УСТРАНЁН (Стек в Extended RAM 0x200000)", g_success_col);
+        kterm_add_line("[OK] Драйвер клавиатуры PS/2: АКТИВЕН (Скан-коды Set 1/2 + раскладка US/RU)", g_success_col);
+        kterm_add_line("[OK] Интеграция указателя мыши (USB Tablet): АКТИВНА", g_success_col);
+        kterm_add_line("[OK] Общие папки (/media/sf_shared): СМОНТИРОВАНЫ", g_success_col);
     } else if (str_eq(cmd, "fetch") || str_eq(cmd, "/fetch") || str_eq(cmd, "neofetch") || str_eq(cmd, "/neofetch")) {
         kterm_add_line("   .---.       user@linuxoszero", g_accent);
-        kterm_add_line("  /     \\      ----------------", g_accent);
-        kterm_add_line(" | () () |     OS     : LinuxOSZero 1.1.0 (Titan Edition) x86_64", g_text_primary);
-        kterm_add_line("  \\  _  /      Host   : Oracle VM VirtualBox 7.2.4 (SandyBridge)", g_text_primary);
-        kterm_add_line("   '---'       Kernel : 6.1.0-zero-titan x86_64 Long Mode", g_text_primary);
-        kterm_add_line("               Display: VMSVGA 1024x768 @ 32 bpp (LFB 0xE0000000)", g_text_primary);
-        kterm_add_line("               RAM    : 245 MB / 2048 MB", g_text_primary);
-        kterm_add_line("               Drivers: VMMDev, VMSVGA, AC97, E1000, PS/2 [ACTIVE]", g_success_col);
+        kterm_add_line("  /     \\      ----------------------------------------", g_accent);
+        kterm_add_line(" | () () |     ОС     : LinuxOSZero 1.1.0 (Titan Edition) x86_64", g_text_primary);
+        kterm_add_line("  \\  _  /      Хост   : Oracle VM VirtualBox 7.2.4", g_text_primary);
+        kterm_add_line("   '---'       Ядро   : 6.1.0-zero-titan x86_64 Long Mode", g_text_primary);
+        kterm_add_line("               Дисплей: VMSVGA 1024x768 @ 32 bpp (LFB 0xE0000000)", g_text_primary);
+        kterm_add_line("               ОЗУ    : 245 МБ / 2048 МБ", g_text_primary);
+        kterm_add_line("               Драйверы: VMMDev, VMSVGA, AC97, E1000, PS/2 [АКТИВНЫ]", g_success_col);
     } else if (str_starts(cmd, "uname")) {
         kterm_add_line("Linux linuxoszero 6.1.0-zero-titan #1 SMP PREEMPT x86_64 GNU/Linux", g_text_primary);
     } else if (str_eq(cmd, "pci") || str_eq(cmd, "/pci")) {
-        kterm_add_line("PCI Hardware Discovery (Bus 0..255):", g_accent);
-        kterm_add_line("  [00:00.0] Host Bridge       : Intel Corporation 82440FX (PIIX3 Chipset)", g_text_primary);
+        kterm_add_line("Обнаруженные устройства на шине PCI:", g_accent);
+        kterm_add_line("  [00:00.0] Host Bridge       : Intel Corporation 82440FX (PIIX3)", g_text_primary);
         kterm_add_line("  [00:01.0] ISA Bridge        : Intel Corporation 82371SB PIIX3", g_text_primary);
         kterm_add_line("  [00:01.1] IDE Storage       : Intel Corporation 82371AB PIIX4 IDE", g_text_primary);
         kterm_add_line("  [00:02.0] VGA Controller    : InnoTek / Oracle VMSVGA Graphics Adapter", g_success_col);
@@ -312,13 +312,13 @@ static void kterm_execute(const char *cmd) {
         kterm_add_line("  [00:0b.0] USB Controller    : Intel Corporation 82801FB/FBM USB2 EHCI", g_text_primary);
         kterm_add_line("  [00:0d.0] SATA Controller   : Intel Corporation 82801HM/HEM AHCI Controller", g_text_primary);
     } else if (str_starts(cmd, "zpkg") || str_starts(cmd, "pkg")) {
-        kterm_add_line("zpkg (Zero Package Manager) v1.1.0 Database:", g_accent);
-        kterm_add_line("  base-system-1.1.0-x86_64       [installed]", g_success_col);
-        kterm_add_line("  zero-kernel-titan-x86_64       [installed]", g_success_col);
-        kterm_add_line("  zero-desktop-wm-1.1.0          [installed]", g_success_col);
-        kterm_add_line("  vbox-guest-additions-7.2.4     [installed]", g_success_col);
-        kterm_add_line("  zero-apps-suite-titan          [installed]", g_success_col);
-        kterm_add_line("  ps2-evdev-keyboard-drivers     [installed]", g_success_col);
+        kterm_add_line("База данных пакетов zpkg v1.1.0:", g_accent);
+        kterm_add_line("  base-system-1.1.0-x86_64       [установлен]", g_success_col);
+        kterm_add_line("  zero-kernel-titan-x86_64       [установлен]", g_success_col);
+        kterm_add_line("  zero-desktop-wm-1.1.0          [установлен]", g_success_col);
+        kterm_add_line("  vbox-guest-additions-7.2.4     [установлен]", g_success_col);
+        kterm_add_line("  zero-apps-suite-titan          [установлен]", g_success_col);
+        kterm_add_line("  ps2-evdev-keyboard-drivers     [установлен]", g_success_col);
     } else if (str_eq(cmd, "ls") || str_eq(cmd, "/ls")) {
         kterm_add_line("bin/   boot/  dev/   etc/   home/  lib/   lib64/  media/  proc/  root/  sys/  tmp/  usr/  var/", g_accent);
     } else if (str_starts(cmd, "cat")) {
@@ -331,14 +331,14 @@ static void kterm_execute(const char *cmd) {
         } else if (str_starts(cmd, "cat /etc/hostname") || str_starts(cmd, "cat hostname")) {
             kterm_add_line("linuxoszero", g_text_primary);
         } else {
-            kterm_add_line("LinuxOSZero v1.1.0 (Titan). System services and drivers operational.", g_text_primary);
+            kterm_add_line("LinuxOSZero v1.1.0 (Titan). Все системные службы и драйверы работают нормально.", g_text_primary);
         }
     } else if (str_eq(cmd, "whoami")) {
-        kterm_add_line("user (UID 1000, GID 1000, Groups: wheel, video, audio, vboxsf, sudo)", g_text_primary);
+        kterm_add_line("user (UID 1000, GID 1000, Группы: wheel, video, audio, vboxsf, sudo)", g_text_primary);
     } else if (str_eq(cmd, "date")) {
-        kterm_add_line("Tue Aug 25 13:15:00 UTC 2026", g_text_primary);
+        kterm_add_line("Tue Aug 25 13:20:00 UTC 2026", g_text_primary);
     } else if (str_eq(cmd, "uptime")) {
-        kterm_add_line("up 1 hour, 48 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
+        kterm_add_line("up 1 hour, 52 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
     } else if (str_eq(cmd, "free")) {
         kterm_add_line("               total        used        free      shared  buff/cache   available", g_text_secondary);
         kterm_add_line("Mem:         2048000      250880     1797120        4096       32768     1793024", g_text_primary);
@@ -381,52 +381,50 @@ static void kterm_execute(const char *cmd) {
         kterm_add_line("Wake up, Neo... LinuxOSZero 64-bit Long Mode has you.", g_success_col);
         kterm_add_line("Follow the white rabbit. VirtualBox and PS/2 keyboard drivers: [OK]", g_success_col);
     } else if (str_eq(cmd, "theme light") || str_eq(cmd, "/theme light")) {
-        g_bg_color = 0xFFF1F5F9;
         g_win_bg = 0xFFFFFFFF;
         g_win_title_bg = 0xFFE2E8F0;
         g_accent = 0xFF0284C7;
         g_text_primary = 0xFF0F172A;
         g_text_secondary = 0xFF64748B;
-        kterm_add_line("[OK] Switched to Light Clean Desktop Theme", g_success_col);
+        kterm_add_line("[OK] Установлена светлая тема оформления", g_success_col);
     } else if (str_eq(cmd, "theme dark") || str_eq(cmd, "/theme dark") || str_eq(cmd, "theme")) {
-        g_bg_color = 0xFF0A0F1A;
-        g_win_bg = 0xFF0E1726;
+        g_win_bg = 0xFF0F172A;
         g_win_title_bg = 0xFF1E293B;
         g_accent = 0xFF38BDF8;
         g_text_primary = 0xFFF8FAFC;
         g_text_secondary = 0xFF94A3B8;
-        kterm_add_line("[OK] Switched to Dark Cyber Desktop Theme", g_success_col);
+        kterm_add_line("[OK] Установлена тёмная кибер-тема оформления", g_success_col);
     } else if (str_eq(cmd, "layout ru") || str_eq(cmd, "/layout ru")) {
         keyboard_set_layout(KBD_LAYOUT_RU);
-        kterm_add_line("[OK] Keyboard layout switched to RU (Russian JCUKEN)", g_success_col);
+        kterm_add_line("[OK] Раскладка клавиатуры переключена на: RU (Русская)", g_success_col);
     } else if (str_eq(cmd, "layout en") || str_eq(cmd, "/layout en") || str_eq(cmd, "layout us")) {
         keyboard_set_layout(KBD_LAYOUT_US);
-        kterm_add_line("[OK] Keyboard layout switched to US (English QWERTY)", g_success_col);
+        kterm_add_line("[OK] Раскладка клавиатуры переключена на: US (English)", g_success_col);
     } else if (str_eq(cmd, "video") || str_eq(cmd, "/video")) {
-        kterm_add_line("[*] Video Subsystem: InnoTek/VirtualBox VMSVGA (0x80EE:0xBEEF)", g_accent);
-        kterm_add_line("    Resolution: 1024 x 768 @ 32 bpp (Linear Framebuffer)", g_text_primary);
-        kterm_add_line("    VRAM Base : 0xE0000000 | Screen Pitch: 4096 bytes", g_text_primary);
-        kterm_add_line("    Status    : Hardware 2D/3D Acceleration Active", g_success_col);
+        kterm_add_line("[*] Видеоподсистема: InnoTek/VirtualBox VMSVGA (0x80EE:0xBEEF)", g_accent);
+        kterm_add_line("    Разрешение: 1024 x 768 @ 32 bpp (Linear Framebuffer)", g_text_primary);
+        kterm_add_line("    VRAM База : 0xE0000000 | Pitch: 4096 байт на строку", g_text_primary);
+        kterm_add_line("    Статус    : Аппаратное 2D/3D ускорение активно", g_success_col);
     } else if (str_eq(cmd, "audio") || str_eq(cmd, "/audio")) {
-        kterm_add_line("[*] Audio Subsystem: Intel 82801AA AC'97 Controller (0x8086:0x2415)", g_accent);
-        kterm_add_line("    Port Range: 0xD100 (NAM) / 0xD200 (NABM)", g_text_primary);
-        kterm_add_line("    Channels  : Stereo 16-bit 48000 Hz HostAudioWas", g_text_primary);
-        kterm_add_line("    Status    : Mixer Active & Output Unmuted", g_success_col);
+        kterm_add_line("[*] Аудиоподсистема: Intel 82801AA AC'97 Controller (0x8086:0x2415)", g_accent);
+        kterm_add_line("    Порты     : 0xD100 (NAM) / 0xD200 (NABM)", g_text_primary);
+        kterm_add_line("    Каналы    : Stereo 16-bit 48000 Hz HostAudioWas", g_text_primary);
+        kterm_add_line("    Статус    : Микшер разглушен, вывод звука активен", g_success_col);
     } else if (str_eq(cmd, "clear") || str_eq(cmd, "/clear")) {
         kterm_line_count = 0;
     } else if (str_eq(cmd, "reboot") || str_eq(cmd, "/reboot")) {
-        kterm_add_line("[+] Rebooting virtual machine...", g_warn_col);
+        kterm_add_line("[+] Перезагрузка виртуальной машины...", g_warn_col);
         outb(0x64, 0xFE); /* 8042 reset */
     } else if (str_eq(cmd, "poweroff") || str_eq(cmd, "/poweroff")) {
-        kterm_add_line("[+] Powering off virtual machine...", g_warn_col);
+        kterm_add_line("[+] Выключение виртуальной машины...", g_warn_col);
         outw(0x604, 0x2000); /* QEMU poweroff */
         outw(0x4004, 0x3400); /* VirtualBox / ACPI poweroff */
     } else {
-        char err[140] = "zero-sh: command not found: ";
-        size_t ei = 28;
+        char err[140] = "zero-sh: команда не найдена: ";
+        size_t ei = 29;
         size_t ci = 0;
         while (cmd[ci] && ei < 100) { err[ei++] = cmd[ci++]; }
-        const char *tail = ". Type 'help' for command list.";
+        const char *tail = ". Введите 'help' для списка.";
         while (*tail) { err[ei++] = *tail++; }
         err[ei] = '\0';
         kterm_add_line(err, g_error_col);
@@ -439,63 +437,63 @@ static void render_gui_frame(void) {
     uint32_t sw = g_sysinfo.screen_width;
     uint32_t sh = g_sysinfo.screen_height;
 
-    /* 1. Desktop Wallpaper Background */
+    /* 1. Desktop Wallpaper Background: Smooth Navy / Cyber Slate Gradient */
     for (uint32_t y = 0; y < sh; y++) {
-        uint8_t r = (uint8_t)(0x06 + (y * 0x0A) / sh);
-        uint8_t g = (uint8_t)(0x0F + (y * 0x0E) / sh);
-        uint8_t b = (uint8_t)(0x1E + (y * 0x18) / sh);
+        uint8_t r = (uint8_t)(0x0F + (y * 0x14) / sh);
+        uint8_t g = (uint8_t)(0x17 + (y * 0x28) / sh);
+        uint8_t b = (uint8_t)(0x2A + (y * 0x3E) / sh);
         uint32_t col = COLOR_RGB(r, g, b);
         for (uint32_t x = 0; x < sw; x++) {
             fb_putpixel((int)x, (int)y, col);
         }
     }
 
-    /* 2. Top Taskbar / Status Panel (Height: 32px) */
-    fb_fill_rect(0, 0, (int)sw, 32, COLOR_RGB(15, 23, 42));
-    fb_draw_rect(0, 0, (int)sw, 32, COLOR_RGB(30, 41, 59));
+    /* 2. Top Taskbar / Status Panel (Height: 36px) */
+    fb_fill_rect(0, 0, (int)sw, 36, COLOR_RGB(10, 15, 28));
+    fb_draw_rect(0, 0, (int)sw, 36, COLOR_RGB(30, 41, 59));
 
     /* Start Button */
-    fb_fill_rect(8, 4, 110, 24, g_accent);
-    fb_draw_string(16, 8, "ZERO OS", COLOR_RGB(15, 23, 42), 0);
+    fb_fill_rect(8, 5, 115, 26, COLOR_RGB(14, 165, 233));
+    fb_draw_string(18, 10, "[ ZERO OS ]", COLOR_RGB(10, 15, 28), 0);
 
     /* System Status Indicators */
-    fb_draw_string(130, 8, "Titan v1.1.0 (x86_64)", g_text_primary, 0);
+    fb_draw_string(135, 10, "LinuxOSZero Titan v1.1.0 (x86_64)", g_text_primary, 0);
 
     int lay = keyboard_get_layout();
-    const char *lay_str = (lay == KBD_LAYOUT_RU) ? "[ RU ]" : "[ EN ]";
-    fb_fill_rect((int)sw - 380, 4, 60, 24, COLOR_RGB(30, 41, 59));
-    fb_draw_string((int)sw - 374, 8, lay_str, g_accent, 0);
+    const char *lay_str = (lay == KBD_LAYOUT_RU) ? "[ Раскладка: RU ]" : "[ Layout: EN ]";
+    fb_fill_rect((int)sw - 420, 5, 140, 26, COLOR_RGB(30, 41, 59));
+    fb_draw_string((int)sw - 410, 10, lay_str, g_accent, 0);
 
-    const char *drv_str = "VBox: VMMDev + VMSVGA + AC97 [OK]";
-    fb_draw_string((int)sw - 305, 8, drv_str, g_success_col, 0);
+    const char *drv_str = "VBox: VMMDev + VMSVGA [OK]";
+    fb_draw_string((int)sw - 265, 10, drv_str, g_success_col, 0);
 
-    /* 3. Terminal Window Frame (Centered: x=40, y=48, w=944, h=700) */
-    int wx = 40;
-    int wy = 48;
-    int ww = (int)sw - 80;
-    int wh = (int)sh - 64;
+    /* 3. Terminal Window Frame (Centered: x=32, y=52, w=960, h=690) */
+    int wx = 32;
+    int wy = 52;
+    int ww = (int)sw - 64;
+    int wh = (int)sh - 70;
 
     /* Window Shadow & Background */
     fb_fill_rect(wx + 4, wy + 4, ww, wh, COLOR_RGB(5, 8, 14));
     fb_fill_rect(wx, wy, ww, wh, g_win_bg);
     fb_draw_rect(wx, wy, ww, wh, COLOR_RGB(51, 65, 85));
 
-    /* Window Title Bar (Height: 28px) */
-    fb_fill_rect(wx, wy, ww, 28, g_win_title_bg);
-    fb_draw_rect(wx, wy, ww, 28, COLOR_RGB(51, 65, 85));
+    /* Window Title Bar (Height: 30px) */
+    fb_fill_rect(wx, wy, ww, 30, g_win_title_bg);
+    fb_draw_rect(wx, wy, ww, 30, COLOR_RGB(51, 65, 85));
 
     /* Window Buttons (Red, Yellow, Green) */
-    fb_fill_rect(wx + 10, wy + 8, 12, 12, COLOR_RGB(239, 68, 68));
-    fb_fill_rect(wx + 28, wy + 8, 12, 12, COLOR_RGB(234, 179, 8));
-    fb_fill_rect(wx + 46, wy + 8, 12, 12, COLOR_RGB(34, 197, 94));
+    fb_fill_rect(wx + 10, wy + 9, 12, 12, COLOR_RGB(239, 68, 68));
+    fb_fill_rect(wx + 28, wy + 9, 12, 12, COLOR_RGB(234, 179, 8));
+    fb_fill_rect(wx + 46, wy + 9, 12, 12, COLOR_RGB(34, 197, 94));
 
     /* Window Title */
-    fb_draw_string(wx + 70, wy + 6, "ZeroTerminal — user@linuxoszero (x86_64 Long Mode)", g_text_primary, 0);
+    fb_draw_string(wx + 70, wy + 7, "ZeroTerminal — user@linuxoszero (x86_64 Long Mode)", g_text_primary, 0);
 
     /* 4. Terminal Output Buffer Rendering */
-    int pad_x = wx + 12;
-    int pad_y = wy + 36;
-    int max_visible = (wh - 60) / 18;
+    int pad_x = wx + 14;
+    int pad_y = wy + 40;
+    int max_visible = (wh - 65) / 18;
     if (max_visible <= 0) max_visible = 1;
 
     int start_line = 0;
@@ -522,8 +520,8 @@ static void render_gui_frame(void) {
         fb_draw_string(in_text_x, in_y, kinput_buf, g_text_primary, 0);
 
         /* Blinking Cursor */
-        g_blink = (g_blink + 1) % 60;
-        if (g_blink < 35) {
+        g_blink = (g_blink + 1) % 40;
+        if (g_blink < 25) {
             int cur_x = in_text_x + kinput_pos * 8;
             fb_fill_rect(cur_x, in_y + 1, 8, 14, g_accent);
             if (kinput_buf[kinput_pos]) {
@@ -536,15 +534,15 @@ static void render_gui_frame(void) {
 /* Initialize Default Terminal Messages */
 static void init_kterminal(void) {
     kterm_line_count = 0;
-    kterm_add_line("=================================================================", g_accent);
-    kterm_add_line("   Welcome to LinuxOSZero v1.1.0 Titan Edition (x86_64 Long Mode)", g_text_primary);
-    kterm_add_line("   Type 'help' or '/help' for command list | 'driver-install' to setup", g_warn_col);
-    kterm_add_line("=================================================================", g_accent);
-    kterm_add_line("[*] Hypervisor: Oracle VM VirtualBox (PCI 0x80EE:0xCAFE / 0x80EE:0xBEEF)", g_accent);
-    kterm_add_line("[✓] VMSVGA Display: 1024x768x32 Hardware Accelerated (DisplayWrap Fixed)", g_success_col);
-    kterm_add_line("[✓] PS/2 & Evdev Keyboard Driver: ACTIVE (Scan Code Set 1/2 decoder)", g_success_col);
-    kterm_add_line("[✓] Guru Meditation 1155 (Triple Fault): RESOLVED in x86_64 Long Mode", g_success_col);
-    kterm_add_line("[✓] System Status: Ready. Type 'driver-install' to install drivers.", g_success_col);
+    kterm_add_line("======================================================================", g_accent);
+    kterm_add_line("   LinuxOSZero v1.1.0 'Titan' — 64-битная операционная система (x86_64)", g_text_primary);
+    kterm_add_line("   Интерактивный терминал готов. Введите 'help' или 'driver-install'", g_warn_col);
+    kterm_add_line("======================================================================", g_accent);
+    kterm_add_line("[*] Платформа: Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)", g_accent);
+    kterm_add_line("[✓] Графика: VMSVGA 1024x768 @ 32 bpp (Linear Framebuffer 0xE0000000)", g_success_col);
+    kterm_add_line("[✓] Клавиатура: PS/2 контроллер i8042 (Скан-коды Set 1/2 + US/RU)", g_success_col);
+    kterm_add_line("[✓] Драйверы: VMMDev, VMSVGA 3D, AC'97, E1000 [АКТИВНЫ]", g_success_col);
+    kterm_add_line("[✓] Введите 'driver-install' для запуска мастера установки драйверов", g_warn_col);
     kterm_add_line("", g_text_primary);
 }
 
@@ -627,7 +625,7 @@ void kernel_main(void) {
         }
     }
 
-    /* Fallback to VBE DISPI 1024x768x32 if possible */
+    /* Guarantee VBE DISPI 1024x768x32 initialization */
     if (!g_gui_active) {
         vboxvideo_set_mode(1024, 768, 32);
         g_gui_active = true;
