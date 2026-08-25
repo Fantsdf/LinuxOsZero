@@ -25,6 +25,7 @@ gcc -O2 -Wall -Wextra \
   src/drivers/fbdev.c \
   src/drivers/input.c \
   src/drivers/sound.c \
+  src/drivers/render3d.c \
   src/drivers/vboxguest.c \
   src/drivers/vboxvideo.c \
   src/kernel/pci.c \
@@ -39,7 +40,7 @@ gcc -O2 -Wall -Wextra \
   src/apps/file_manager/file_manager.c \
   src/apps/editor/editor.c \
   src/apps/fetch/zero_fetch.c \
-  -o dist/zero-desktop
+  -o dist/zero-desktop -lm
 
 gcc -O2 -Wall src/init/zero_init.c -o dist/zero-init
 gcc -O2 -Wall src/drivers/zero_guest_agent.c -o dist/zero-guest-agent

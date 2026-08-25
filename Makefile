@@ -9,7 +9,7 @@ REPO_ROOT := $(shell pwd)
 DIST := $(REPO_ROOT)/dist
 BUILD := $(REPO_ROOT)/build
 
-.PHONY: all kernel desktop tools rootfs iso test clean release help
+.PHONY: all kernel desktop tools rootfs iso test preview clean release help
 
 all: kernel tools desktop rootfs iso
 
@@ -23,6 +23,7 @@ help:
 	@echo "  make rootfs    - Assemble root filesystem and compressed initramfs"
 	@echo "  make iso       - Generate bootable hybrid ISO for VirtualBox/PC"
 	@echo "  make test      - Test ISO in VirtualBox / QEMU"
+	@echo "  make preview   - Start interactive desktop (port 8080)"
 	@echo "  make clean     - Remove compiled binaries and build artifacts"
 	@echo "  make release   - Prepare release packages and checksums"
 
@@ -40,6 +41,7 @@ desktop:
 	  src/drivers/fbdev.c \
 	  src/drivers/input.c \
 	  src/drivers/sound.c \
+	  src/drivers/render3d.c \
 	  src/drivers/vboxguest.c \
 	  src/drivers/vboxvideo.c \
 	  src/kernel/pci.c \
@@ -54,7 +56,7 @@ desktop:
 	  src/apps/file_manager/file_manager.c \
 	  src/apps/editor/editor.c \
 	  src/apps/fetch/zero_fetch.c \
-	  -o $(DIST)/zero-desktop
+	  -o $(DIST)/zero-desktop -lm
 	@echo "[OK] zero-desktop compiled."
 
 tools:
@@ -80,6 +82,9 @@ test-qemu:
 
 test-qemu-test:
 	@bash ./builder/test-qemu.sh
+
+preview:
+	node web_preview/server.js
 
 release: iso
 	@bash ./release.sh --verify
