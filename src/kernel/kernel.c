@@ -51,9 +51,42 @@ static void detect_cpu(void) {
     }
 }
 
+/* Boot sector stores 1 at 0x6000 when a VBE graphics mode was set. */
+static int vbe_graphics_active(void) {
+    return (*(volatile uint8_t *)0x6000) != 0;
+}
+
+/* Fill the linear framebuffer with a vertical gradient so the display is not
+ * black when a VBE graphics mode is active (VirtualBox std VGA LFB = 0xE0000000). */
+static void draw_framebuffer_gradient(void) {
+    uint32_t *fb = g_sysinfo.framebuffer;
+    uint32_t w = g_sysinfo.screen_width;
+    uint32_t h = g_sysinfo.screen_height;
+    if (!fb || w == 0 || h == 0) return;
+
+    for (uint32_t y = 0; y < h; y++) {
+        /* Dark navy at the top -> deep blue toward the bottom */
+        uint8_t r = (uint8_t)(0x06 + (y * 0x0A) / h);
+        uint8_t g = (uint8_t)(0x0F + (y * 0x0C) / h);
+        uint8_t b = (uint8_t)(0x2E + (y * 0x1E) / h);
+        uint32_t color = (0xFFu << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | b;
+        for (uint32_t x = 0; x < w; x++) {
+            fb[y * w + x] = color;
+        }
+    }
+}
+
 void kernel_main(void) {
     /* Step 1: Initialize Text/VGA output */
     vga_init();
+
+    /* If the boot sector set a VBE mode, draw to the framebuffer so the
+     * screen is never black (VirtualBox VMSVGA / std VGA). */
+    if (vbe_graphics_active()) {
+        draw_framebuffer_gradient();
+        vga_printf("[+] Graphics mode active (VBE framebuffer)\n");
+    }
+
     vga_printf("==================================================\n");
     vga_printf("     Welcome to LinuxOSZero v%s (%s)\n", OS_VERSION, OS_CODENAME);
     vga_printf("   Minimalist, High-Performance x86_64 Linux OS\n");

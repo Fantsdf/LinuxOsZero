@@ -49,5 +49,10 @@ ld -m elf_x86_64 --oformat binary -Ttext 0x10000 \
 cat dist/boot.bin dist/kernel64.bin > dist/vmlinuz-zero
 cp dist/vmlinuz-zero dist/vmlinuz
 
+# Build the El Torito no-emulation boot image = boot.bin + kernel64.bin.
+# The BIOS loads this whole image at 0x7C00; boot.bin then copies the kernel
+# (at 0x7E00) to 0x10000. This is what makes ISO booting reliable in VirtualBox.
+cp dist/vmlinuz-zero dist/boot-image.bin
+
 echo "[OK] LinuxOSZero Kernel binaries built successfully in dist/"
-ls -la dist/vmlinuz dist/boot.bin
+ls -la dist/vmlinuz dist/boot.bin dist/boot-image.bin

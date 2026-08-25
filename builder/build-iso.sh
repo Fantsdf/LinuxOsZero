@@ -56,6 +56,8 @@ echo "\n[Step 4/5] Staging Boot Files and ISO Hierarchy..."
 cp dist/vmlinuz iso_root/boot/vmlinuz
 cp dist/initrd.img iso_root/boot/initrd.img
 cp dist/boot.bin iso_root/boot/boot.bin 2>/dev/null || true
+# El Torito no-emulation boot image = boot.bin + kernel (loaded whole at 0x7C00)
+cp dist/boot-image.bin iso_root/boot/boot-image.bin
 
 # Copy RootFS image and metadata
 cp dist/initrd.img iso_root/zero/rootfs.img
@@ -186,7 +188,7 @@ for root, dirs, files in os.walk(iso_root):
             builder.add_file(rel_path, f.read())
 
 # Set bootloader image
-builder.set_boot_image("boot/boot.bin")
+builder.set_boot_image("boot/boot-image.bin")
 
 builder.build("$ISO_OUTPUT")
 EOF

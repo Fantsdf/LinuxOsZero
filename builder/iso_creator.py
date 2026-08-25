@@ -139,7 +139,12 @@ class ISOCreator:
         boot_catalog[34:36] = b"\x00\x00" # Load segment (0x0000 = default 0x07C0)
         boot_catalog[36] = 0x00         # System type
         boot_catalog[37] = 0x00         # Unused
-        boot_catalog[38:40] = struct.pack("<H", 4) # Sector count (4 sectors = 2KB bootstrap)
+        # Sector count = real boot image size in 2048-byte sectors (not hardcoded).
+        # This is critical for VirtualBox/QEMU to load the whole boot image
+        # (boot.bin + kernel) into memory at 0x7C00.
+        boot_data_len = len(self.files[self.boot_image_path].local_data) if (self.boot_image_path and self.boot_image_path in self.files) else 2048
+        boot_sectors = max(1, (boot_data_len + SECTOR_SIZE - 1) // SECTOR_SIZE)
+        boot_catalog[38:40] = struct.pack("<H", boot_sectors) # Sector count
         boot_catalog[40:44] = struct.pack("<I", boot_entry_lba) # Load RBA (LBA of boot image)
 
         # EFI Boot Section if present

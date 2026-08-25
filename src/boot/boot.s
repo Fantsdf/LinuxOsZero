@@ -1,6 +1,14 @@
 /*
- * LinuxOSZero - Master Boot Record / Stage 1 Boot Sector (512 Bytes)
- * Architecture: x86 16-bit Real Mode
+ * LinuxOSZero - Stage 1 Boot Sector (512 Bytes)
+ *
+ * This is the El Torito no-emulation boot image. The BIOS loads the whole
+ * boot image (boot.bin + kernel64.bin) at 0x7C00. boot.bin occupies 0x7C00
+ * and the kernel follows immediately at 0x7E00, so there are NO raw disk
+ * reads needed -- this makes booting in VirtualBox/QEMU reliable (fixes the
+ * black screen caused by reading the wrong ISO sectors).
+ *
+ * Flow: set a video mode -> enable A20 -> copy kernel 0x7E00->0x10000 ->
+ *       far jump to 0x10000 (trampoline switches to 64-bit long mode).
  */
 
 .code16
@@ -12,7 +20,7 @@ _start:
     jmp short boot_code
     nop
 
-    /* BPB Header */
+    /* ---- BPB (kept for disk-boot compatibility) ---- */
     .ascii "ZEROOS  "
     .word  512
     .byte  1
@@ -44,62 +52,64 @@ boot_code:
 
     mov [boot_drive], dl
 
-    /* Print welcome message */
     mov si, offset msg_booting
     call print_str
 
-    /* Try VESA VBE linear framebuffer (Mode 0x118: 1024x768x32 or Mode 0x115: 800x600x32) */
+    /* ---- Try to set a graphics mode. Store 1 at 0x6000 on success so the
+          64-bit kernel knows it can draw to the framebuffer (0xE0000000). ---- */
+    mov byte ptr [0x6000], 0      /* default: text mode */
+
     mov ax, 0x4F02
-    mov bx, 0x4118
+    mov bx, 0x4118                /* 1024x768x32 */
     int 0x10
     cmp ax, 0x004F
-    je .vbe_done
+    jne .try_800
+    mov byte ptr [0x6000], 1
+    jmp .vbe_done
 
+.try_800:
     mov ax, 0x4F02
-    mov bx, 0x4115
+    mov bx, 0x4115                /* 800x600x32 */
     int 0x10
+    cmp ax, 0x004F
+    jne .try_640
+    mov byte ptr [0x6000], 1
+    jmp .vbe_done
+
+.try_640:
+    mov ax, 0x4F02
+    mov bx, 0x4112                /* 640x480x32 */
+    int 0x10
+    cmp ax, 0x004F
+    jne .vbe_done
+    mov byte ptr [0x6000], 1
+
 .vbe_done:
 
-    /* Enable Fast A20 */
+    /* ---- Enable Fast A20 ---- */
     in al, 0x92
     or al, 2
     out 0x92, al
 
-    /* Read Stage 2 from disk (sectors 2..64) into 0x1000:0x0000 (0x10000) */
-    mov si, offset dap
-    mov ah, 0x42
-    mov dl, [boot_drive]
-    int 0x13
-    jc .read_err
+    /* ---- Copy kernel from 0x7E00 to 0x10000 (16 KB) ----
+       ds:si = 0x07E0:0x0000 , es:di = 0x1000:0x0000 */
+    mov ax, 0x07E0
+    mov ds, ax
+    xor si, si
+    mov ax, 0x1000
+    mov es, ax
+    xor di, di
+    mov cx, 0x4000          /* 16384 bytes = max kernel size */
+    cld
+    rep movsb
 
+    /* ---- Restore DS for messaging and jump to the trampoline ---- */
+    mov ax, 0x1000
+    mov ds, ax
     mov si, offset msg_ok
     call print_str
 
-    /* Jump to Stage 2 at 0x1000:0x0000 */
-    jmp 0x1000:0x0000
-
-.read_err:
-    /* Fallback standard INT 13h read */
-    mov ax, 0x1000
-    mov es, ax
-    xor bx, bx
-    mov ah, 0x02
-    mov al, 64
-    mov ch, 0
-    mov cl, 2
-    mov dh, 0
-    mov dl, [boot_drive]
-    int 0x13
-    jnc .jump_stage2
-
-    mov si, offset msg_err
-    call print_str
-.hang:
-    hlt
-    jmp .hang
-
-.jump_stage2:
-    jmp 0x1000:0x0000
+    ljmp 0x1000:0x0000
 
 print_str:
     pusha
@@ -116,24 +126,13 @@ print_str:
     popa
     ret
 
-.align 4
-dap:
-    .byte 0x10
-    .byte 0x00
-    .word 64
-    .word 0x0000
-    .word 0x1000
-    .quad 1
-
 boot_drive:
     .byte 0x80
 
 msg_booting:
-    .asciz "\r\n[+] LinuxOSZero v1.0 Booting...\r\n"
+    .asciz "LinuxOSZero Booting...\r\n"
 msg_ok:
-    .asciz "[OK] OS Loaded.\r\n"
-msg_err:
-    .asciz "[ERR] Disk Read Error.\r\n"
+    .asciz "Kernel OK.\r\n"
 
 .org 510
 .word 0xAA55
