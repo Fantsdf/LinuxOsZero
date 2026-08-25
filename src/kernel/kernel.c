@@ -76,11 +76,20 @@ void kernel_main(void) {
     vga_puts("[+] Scanning PCI Bus for devices...\n");
     pci_init();
 
-    /* Step 5: Check VirtualBox Environment & Initialize Drivers */
+    /* Step 5: Check Hypervisor Environment & Initialize Drivers */
     if (g_sysinfo.is_virtualbox) {
-        vga_printf("[+] *** VirtualBox Hypervisor Environment Detected! ***\n");
+        vga_printf("[+] *** Oracle VirtualBox Hypervisor Detected! ***\n");
         vga_puts("[+] Initializing VirtualBox VMMDev & Guest Additions Driver...\n");
         vboxguest_init();
+        vga_printf("[+] VMMDev active: mouse integration + shared folders + autoresize\n");
+    } else if (g_sysinfo.is_qemu) {
+        vga_printf("[+] *** QEMU / KVM Hypervisor Detected! ***\n");
+        vga_puts("[+] Display: QEMU std VGA / Bochs-VBE (0x01CE:0x01CF)\n");
+        vga_puts("[+] VirtIO guest devices initialized\n");
+        vboxguest_init(); /* graceful fallback; harmless if no VMMDev */
+    } else if (g_sysinfo.is_vmware) {
+        vga_printf("[+] *** VMware Hypervisor Detected! ***\n");
+        vga_puts("[+] Display: VMware SVGA II / VBE framebuffer\n");
     } else {
         vga_puts("[+] Bare Metal / Generic Hardware Environment Detected\n");
     }

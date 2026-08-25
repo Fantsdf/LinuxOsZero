@@ -16,6 +16,7 @@
 #define PCI_VENDOR_INTEL    0x8086
 #define PCI_VENDOR_REDHAT   0x1AF4  /* VirtIO */
 #define PCI_VENDOR_VMWARE   0x15AD
+#define PCI_VENDOR_BOCHS    0x1234  /* QEMU / Bochs VGA adapter */
 #define PCI_VENDOR_AMD      0x1022
 #define PCI_VENDOR_NVIDIA   0x10DE
 #define PCI_VENDOR_REALTEK  0x10EC

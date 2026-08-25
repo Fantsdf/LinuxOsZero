@@ -90,6 +90,12 @@ cat << 'EOF' > "$ROOTFS/etc/hosts"
 ::1         localhost ip6-localhost ip6-loopback
 EOF
 
+# Custom wallpaper & branding
+echo "[+] Installing desktop wallpaper & branding..."
+mkdir -p "$ROOTFS/usr/share/backgrounds" "$ROOTFS/usr/share/linuxoszero"
+cp assets/wallpaper.png "$ROOTFS/usr/share/backgrounds/wallpaper.png" 2>/dev/null || true
+cp assets/logo.png "$ROOTFS/usr/share/linuxoszero/logo.png" 2>/dev/null || true
+
 # OS Release metadata
 cat << 'EOF' > "$ROOTFS/etc/os-release"
 NAME="LinuxOSZero"

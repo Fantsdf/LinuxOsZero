@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LinuxOSZero v1.0.0 — Genesis</title>
+  <link rel="icon" href="img/favicon.png" type="image/png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body data-theme="dark">
@@ -12,7 +13,7 @@
   <div id="boot-screen">
     <div class="boot-inner">
       <div class="boot-logo">
-        <div class="boot-circle"><span class="boot-letter">Z</span></div>
+        <img src="img/logo.png" class="boot-logo-img" alt="LinuxOSZero">
         <h1 class="boot-title">LinuxOSZero</h1>
         <p class="boot-sub">Genesis Edition v1.0.0 (x86_64)</p>
       </div>
@@ -25,23 +26,21 @@
   <!-- ============ LOGIN / SESSION CHOOSER ============ -->
   <div id="login-screen" class="hidden">
     <div class="login-bg">
+      <img src="img/wallpaper.jpg" class="login-wall" alt="">
       <div class="login-card">
         <div class="login-brand">
-          <div class="login-logo">Z</div>
+          <img src="img/logo.png" class="login-logo-img" alt="LinuxOSZero">
           <h2>LinuxOSZero</h2>
           <p class="login-sub">Genesis Edition v1.0.0 (x86_64)</p>
         </div>
-
         <div class="login-user">
           <div class="login-avatar">user</div>
           <div class="login-username">user</div>
         </div>
-
         <div class="login-field">
           <label>Пароль</label>
           <input type="password" id="login-pass" value="zero" autocomplete="off">
         </div>
-
         <div class="login-row">
           <div class="login-col">
             <label>Интерфейс (сеанс)</label>
@@ -59,10 +58,9 @@
             </select>
           </div>
         </div>
-
         <button class="login-btn" id="login-btn">Войти</button>
         <div class="login-footer">
-          <span class="login-status">● VirtualBox VMMDev активен</span>
+          <span class="login-status" id="login-status">● Детектирование гипервизора…</span>
         </div>
       </div>
     </div>
@@ -70,73 +68,58 @@
 
   <!-- ============ DESKTOP ============ -->
   <div id="os-container" class="hidden">
-    <!-- Desktop Background -->
     <div id="desktop">
       <div class="wallpaper-bg">
+        <img src="img/wallpaper.jpg" class="wallpaper-img" alt="">
         <div class="wallpaper-grid"></div>
         <div class="wallpaper-emblem">
-          <div class="emblem-circle"><span class="emblem-letter">Z</span></div>
+          <img src="img/logo.png" class="emblem-img" alt="">
           <h1 class="os-brand-title">LinuxOSZero</h1>
           <p class="os-brand-sub">Genesis Edition v1.0.0 (x86_64)</p>
-          <p class="os-brand-desc">Минимализм • VirtualBox VMSVGA • Модульность</p>
+          <p class="os-brand-desc">Минимализм • QEMU / VirtualBox VMSVGA • Модульность</p>
         </div>
       </div>
 
-      <!-- Desktop Icons -->
-      <div id="desktop-icons">
-        <div class="desktop-icon" onclick="openApp('installer')"><div class="icon-img icon-installer">💾</div><span>Установка ОС</span></div>
-        <div class="desktop-icon" onclick="openApp('terminal')"><div class="icon-img icon-term">&gt;_</div><span>Терминал</span></div>
-        <div class="desktop-icon" onclick="openApp('filemanager')"><div class="icon-img icon-fm">📁</div><span>Файлы</span></div>
-        <div class="desktop-icon" onclick="openApp('control')"><div class="icon-img icon-settings">⚙️</div><span>Параметры</span></div>
-        <div class="desktop-icon" onclick="openApp('editor')"><div class="icon-img icon-edit">📝</div><span>Редактор</span></div>
-        <div class="desktop-icon" onclick="openApp('fetch')"><div class="icon-img icon-info">ℹ️</div><span>О системе</span></div>
-      </div>
-
-      <!-- Windows Layer -->
+      <div id="desktop-icons"></div>
       <div id="windows-layer"></div>
     </div>
 
     <!-- Start Menu -->
     <div id="start-menu" class="hidden">
       <div class="start-header">
-        <div class="user-avatar">Z</div>
+        <img src="img/logo.png" class="user-avatar-img" alt="">
         <div>
           <div class="start-user">user@linuxoszero</div>
           <div class="start-os">LinuxOSZero v1.0.0</div>
         </div>
       </div>
-      <div class="start-items">
-        <div class="start-item" onclick="openApp('installer'); toggleStartMenu()"><span class="start-icon">💾</span><div><div class="item-title">Установить LinuxOSZero</div><div class="item-sub">Разметка диска и установка ОС</div></div></div>
-        <div class="start-item" onclick="openApp('terminal'); toggleStartMenu()"><span class="start-icon">&gt;_</span><div><div class="item-title">Терминал</div><div class="item-sub">Командная строка</div></div></div>
-        <div class="start-item" onclick="openApp('filemanager'); toggleStartMenu()"><span class="start-icon">📁</span><div><div class="item-title">Файловый менеджер</div><div class="item-sub">Файлы корневой ФС</div></div></div>
-        <div class="start-item" onclick="openApp('control'); toggleStartMenu()"><span class="start-icon">⚙️</span><div><div class="item-title">Параметры и драйверы</div><div class="item-sub">Экран, VBox, тема</div></div></div>
-        <div class="start-item" onclick="openApp('editor'); toggleStartMenu()"><span class="start-icon">📝</span><div><div class="item-title">Текстовый редактор</div><div class="item-sub">Код и текст</div></div></div>
-        <div class="start-item" onclick="openApp('fetch'); toggleStartMenu()"><span class="start-icon">ℹ️</span><div><div class="item-title">О системе</div><div class="item-sub">Оборудование и драйверы</div></div></div>
-      </div>
+      <div class="start-search"><span id="start-search-icon"></span><input id="start-search" placeholder="Поиск приложений…" autocomplete="off"></div>
+      <div class="start-items" id="start-items"></div>
       <div class="start-footer">
-        <span class="vbox-status-tag">● Гостевой VirtualBox активен</span>
+        <span class="vbox-status-tag" id="hv-status">● Гостевая интеграция активна</span>
         <div class="footer-actions">
-          <button class="btn-power" title="Выход" onclick="logout()">⏻</button>
+          <button class="btn-power" id="power-btn" title="Выход">⏻</button>
         </div>
       </div>
     </div>
 
     <!-- Bottom Taskbar -->
     <div id="taskbar">
-      <button id="start-btn" onclick="toggleStartMenu()">
-        <span class="start-logo">Z</span>
+      <button id="start-btn">
+        <img src="img/logo.png" class="start-logo-img" alt="">
         <span>ZERO OS</span>
       </button>
       <div id="task-list"></div>
       <div id="system-tray">
-        <div class="tray-badge">VBox VMSVGA</div>
-        <div class="tray-icon" title="Сеть подключена">📶</div>
-        <div class="tray-icon" title="Звук 100%">🔊</div>
+        <div class="tray-badge" id="hv-badge">QEMU</div>
+        <div class="tray-icon" id="net-icon" title="Сеть"></div>
+        <div class="tray-icon" id="audio-icon" title="Звук 100%"></div>
         <div id="clock" class="tray-clock">12:00:00</div>
       </div>
     </div>
   </div>
 
+  <script src="icons.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

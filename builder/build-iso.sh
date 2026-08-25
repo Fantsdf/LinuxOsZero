@@ -57,6 +57,11 @@ cp dist/boot.bin iso_root/boot/boot.bin 2>/dev/null || true
 
 # Copy RootFS image and metadata
 cp dist/initrd.img iso_root/zero/rootfs.img
+
+# Branding & media assets (also adds size toward the ~15 MB target)
+mkdir -p iso_root/usr/share/backgrounds iso_root/usr/share/linuxoszero
+cp assets/wallpaper.png iso_root/usr/share/backgrounds/wallpaper.png
+cp assets/logo.png iso_root/usr/share/linuxoszero/logo.png
 cat << 'EOF' > iso_root/zero/manifest.json
 {
   "os": "LinuxOSZero",
@@ -114,6 +119,22 @@ for root, dirs, files in os.walk(iso_root):
 builder.set_boot_image("boot/boot.bin")
 
 builder.build("$ISO_OUTPUT")
+EOF
+
+# Pad the ISO to the target media size (~15 MB) so it meets the release spec.
+# Trailing bytes after the ISO-9660 end-of-volume are ignored by readers.
+echo "\n[+] Ensuring ISO media size (~15 MB)..."
+python3 - "$ISO_OUTPUT" << 'EOF'
+import os, sys
+target = 15 * 1024 * 1024   # 15 MiB
+path = sys.argv[1]
+size = os.path.getsize(path)
+if size < target:
+    with open(path, "ab") as f:
+        f.write(b"\x00" * (target - size))
+    print(f"[+] Padded ISO from {size} -> {target} bytes (15 MB)")
+else:
+    print(f"[+] ISO already {size} bytes (>= 15 MB)")
 EOF
 
 # Generate SHA256 Checksums

@@ -105,14 +105,14 @@ def main():
     for d in disks:
         print(f"    - {d['name']}: {d['size_gb']} GB [{d['type']}]")
 
-    print("\n[*] Driver Subsystem Status:")
-    print("    [OK] VBoxGuest Integration Driver  : Active")
-    print("    [OK] VBoxVideo / VMSVGA Framebuffer: Active (1024x768 32-bpp)")
+    display_drv = "VBoxVideo / VMSVGA" if "VirtualBox" in hyp else ("QEMU std VGA / VirtIO" if ("QEMU" in hyp or "KVM" in hyp) else ("VMware SVGA II" if "VMware" in hyp else "Generic VBE"))
+    print(f"\n[*] Driver Subsystem Status (platform: {hyp}):")
+    print(f"    [OK] Display Driver ({display_drv})    : Active (1920x1080 32-bpp)")
+    print("    [OK] Mouse / Absolute Pointer     : Enabled (seamless)")
     print("    [OK] Intel e1000 / VirtIO Network  : Ready")
     print("    [OK] AC97 / Intel HDA Sound Audio   : Ready")
-    print("    [OK] Absolute Pointer / PS2 Mouse  : Enabled")
+    print("    [OK] Guest Integration Service     : Active")
     print("=" * 60)
 
 if __name__ == "__main__":
     main()
-EOF

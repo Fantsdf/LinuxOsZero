@@ -75,6 +75,12 @@ iso: kernel tools desktop rootfs
 test:
 	@bash ./builder/test-vbox.sh
 
+test-qemu:
+	@bash ./builder/test-qemu.sh
+
+test-qemu-test:
+	@bash ./builder/test-qemu.sh
+
 preview:
 	node web_preview/server.js
 

@@ -74,6 +74,10 @@ static const char *get_device_description(uint16_t vendor_id, uint16_t device_id
             default:     return "VMware Virtual Device";
         }
     }
+    if (vendor_id == PCI_VENDOR_BOCHS) {
+        if (device_id == 0x1111) return "QEMU / Bochs VBE VGA Display Adapter";
+        return "QEMU / Bochs Virtual Device";
+    }
     if (vendor_id == PCI_VENDOR_AMD) {
         switch (device_id) {
             case 0x7439: return "AMD 768 PCI-ISA Bridge";
@@ -140,6 +144,14 @@ void pci_scan_all_buses(void) {
 
                     if (vendor_id == PCI_VENDOR_VBOX) {
                         g_sysinfo.is_virtualbox = true;
+                    } else if (vendor_id == PCI_VENDOR_REDHAT) {
+                        /* Red Hat VirtIO devices are characteristic of QEMU/KVM */
+                        g_sysinfo.is_qemu = true;
+                    } else if (vendor_id == PCI_VENDOR_VMWARE) {
+                        g_sysinfo.is_vmware = true;
+                    } else if (vendor_id == 0x1234) {
+                        /* 0x1234:0x1111 is the Bochs/QEMU VGA adapter */
+                        g_sysinfo.is_qemu = true;
                     }
                 }
 
