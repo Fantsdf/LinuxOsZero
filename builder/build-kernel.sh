@@ -23,7 +23,11 @@ ld -m elf_i386 --oformat binary -Ttext 0x7c00 build/boot.o -o dist/boot.bin
 echo "[+] Assembling Stage 2 Trampoline (src/boot/stage2_trampoline.s)..."
 as --64 src/boot/stage2_trampoline.s -o build/stage2_trampoline.o
 
-# 3. Compile Native 64-bit Kernel Core (src/kernel/* & drivers)
+# 3. Assemble 64-bit IDT ISR Stubs
+echo "[+] Assembling 64-bit ISR Stubs (src/kernel/isr.s)..."
+as --64 src/kernel/isr.s -o build/isr.o
+
+# 4. Compile Native 64-bit Kernel Core (src/kernel/* & drivers)
 echo "[+] Compiling Native 64-bit Kernel Core (src/kernel/*)..."
 gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
     src/kernel/kernel.c -o build/kernel.o
@@ -46,7 +50,7 @@ gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
 
 # Link Stage 2 Kernel Binary in 64-bit format
 ld -m elf_x86_64 --oformat binary -Ttext 0x10000 \
-    build/stage2_trampoline.o build/stage2.o build/kernel.o build/gdt.o build/idt.o build/keyboard.o build/pci.o build/vga.o \
+    build/stage2_trampoline.o build/stage2.o build/kernel.o build/gdt.o build/idt.o build/isr.o build/keyboard.o build/pci.o build/vga.o \
     build/vboxguest.o build/vboxvideo.o \
     -o dist/kernel64.bin
 

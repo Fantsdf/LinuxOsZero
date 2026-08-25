@@ -80,7 +80,14 @@ static void draw_framebuffer_gradient(void) {
 }
 
 void kernel_main(void) {
-    /* Step 1: Initialize Text/VGA output */
+    /* Step 0: Ensure interrupts are disabled during early initialization */
+    cli();
+
+    /* Step 1: Initialize Core Hardware Descriptor Tables FIRST */
+    gdt_init();
+    idt_init();
+
+    /* Step 2: Initialize Text/VGA output */
     vga_init();
 
     /* If the boot sector set a VBE mode, draw to the framebuffer so the
@@ -95,18 +102,11 @@ void kernel_main(void) {
     vga_printf("   Minimalist, High-Performance x86_64 Linux OS\n");
     vga_printf("==================================================\n\n");
 
-    /* Step 2: CPU Detection */
+    /* Step 3: CPU Detection */
     detect_cpu();
     vga_printf("[+] CPU Vendor: %s | Brand: %s\n", g_sysinfo.cpu_vendor, g_sysinfo.cpu_brand);
-
-    /* Step 3: Initialize Core Hardware Descriptor Tables */
-    vga_puts("[+] Initializing Global Descriptor Table (GDT)... ");
-    gdt_init();
-    vga_puts("[OK]\n");
-
-    vga_puts("[+] Initializing Interrupt Descriptor Table (IDT)... ");
-    idt_init();
-    vga_puts("[OK]\n");
+    vga_puts("[+] Global Descriptor Table (GDT) [OK]\n");
+    vga_puts("[+] Interrupt Descriptor Table (IDT) [OK]\n");
 
     /* Step 4: Initialize PS/2 Keyboard Driver & Subsystem */
     vga_puts("[+] Initializing PS/2 Keyboard Driver & Scancode Decoder... ");
@@ -134,6 +134,9 @@ void kernel_main(void) {
     } else {
         vga_puts("[+] Bare Metal / Generic Hardware Environment Detected\n");
     }
+
+    /* Step 7: Safe to enable interrupts */
+    sti();
 
     vga_printf("\n[+] LinuxOSZero 64-bit Kernel Initialized Successfully!\n");
     vga_printf("[+] Transitioning to LinuxOSZero Userland & ZeroDesktop...\n\n");

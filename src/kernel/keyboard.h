@@ -1,6 +1,7 @@
 /*
  * LinuxOSZero - PS/2 Keyboard Driver Core Header
  * Architecture: x86_64
+ * Version: 1.1.0 (Titan)
  */
 
 #ifndef KEYBOARD_H
@@ -43,5 +44,6 @@ int keyboard_getchar(void);
 bool keyboard_get_event(key_event_t *ev);
 void keyboard_set_layout(int layout);
 int keyboard_get_layout(void);
+void keyboard_handle_scancode(uint8_t scancode);
 
 #endif /* KEYBOARD_H */

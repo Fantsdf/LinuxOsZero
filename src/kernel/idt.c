@@ -1,6 +1,8 @@
 /*
  * LinuxOSZero - IDT (Interrupt Descriptor Table) & CPU Exceptions
  * Architecture: x86_64
+ *
+ * Implements 64-bit IDT configuration and 8259 PIC remapping.
  */
 
 #include "kernel.h"
@@ -10,7 +12,7 @@ struct idt_entry {
     uint16_t base_lo;
     uint16_t sel;
     uint8_t  ist;        /* Interrupt Stack Table index & reserved */
-    uint8_t  flags;      /* Type and attributes (0x8E = 64-bit Interrupt Gate) */
+    uint8_t  flags;      /* Type and attributes (0x8E = 64-bit Interrupt Gate, DPL 0) */
     uint16_t base_mid;
     uint32_t base_hi;
     uint32_t reserved;
@@ -21,17 +23,34 @@ struct idt_ptr {
     uint64_t base;
 } __attribute__((packed));
 
+typedef struct {
+    uint64_t rax, rbx, rcx, rdx, rsi, rdi, rbp;
+    uint64_t r8, r9, r10, r11, r12, r13, r14, r15;
+    uint64_t int_no;
+    uint64_t err_code;
+    uint64_t rip;
+    uint64_t cs;
+    uint64_t rflags;
+    uint64_t rsp;
+    uint64_t ss;
+} __attribute__((packed)) interrupt_frame_t;
+
 static struct idt_entry idt[256];
 static struct idt_ptr ip;
 
-static void default_isr(void) {
-    /* Generic interrupt acknowledge */
-    outb(0x20, 0x20);
-    outb(0xA0, 0x20);
-}
+extern void *isr_stub_table[256];
 
-static void irq1_keyboard_isr(void) {
-    keyboard_isr();
+void isr_handler(interrupt_frame_t *frame) {
+    if (frame->int_no == 0x21) {
+        /* IRQ 1 - PS/2 Keyboard */
+        keyboard_isr();
+    } else if (frame->int_no >= 0x20 && frame->int_no <= 0x2F) {
+        /* Generic Hardware IRQ acknowledgment to 8259 PIC */
+        if (frame->int_no >= 0x28) {
+            outb(0xA0, 0x20); /* Slave PIC EOI */
+        }
+        outb(0x20, 0x20);     /* Master PIC EOI */
+    }
 }
 
 static void idt_set_gate(uint8_t num, uint64_t base, uint16_t sel, uint8_t flags) {
@@ -48,11 +67,7 @@ void idt_init(void) {
     ip.limit = (uint16_t)(sizeof(struct idt_entry) * 256 - 1);
     ip.base = (uint64_t)&idt;
 
-    for (int i = 0; i < 256; i++) {
-        idt_set_gate((uint8_t)i, (uint64_t)default_isr, 0x18, 0x8E);
-    }
-
-    /* Remap Master and Slave 8259 PIC */
+    /* Remap Master and Slave 8259 PIC to vectors 0x20..0x2F */
     outb(0x20, 0x11);
     io_wait();
     outb(0xA0, 0x11);
@@ -70,12 +85,14 @@ void idt_init(void) {
     outb(0xA1, 0x01);
     io_wait();
 
-    /* Unmask IRQ 1 (Keyboard) and IRQ 2 (Cascade) on Master PIC */
+    /* Unmask IRQ 1 (Keyboard) and IRQ 2 (Cascade) on Master PIC, mask all on Slave */
     outb(0x21, 0xFD); /* 11111101b - IRQ1 unmasked */
     outb(0xA1, 0xFF); /* Mask all on Slave PIC */
 
-    /* Set IRQ1 Keyboard Handler (INT 33 = 0x21) */
-    idt_set_gate(0x21, (uint64_t)irq1_keyboard_isr, 0x18, 0x8E);
+    /* Set all 256 IDT gates pointing to their 64-bit assembly stubs (CS=0x18) */
+    for (int i = 0; i < 256; i++) {
+        idt_set_gate((uint8_t)i, (uint64_t)isr_stub_table[i], 0x18, 0x8E);
+    }
 
-    __asm__ volatile ("lidt (%0)" : : "r"(&ip));
+    __asm__ volatile ("lidt (%0)" : : "r"(&ip) : "memory");
 }
