@@ -197,8 +197,8 @@ pm64:
     mov fs, ax
     mov gs, ax
 
-    /* Set up 64-bit kernel stack (1MB physical, 16-byte aligned) */
-    mov rsp, 0x100000
+    /* Set up 64-bit kernel stack (2MB physical in Extended RAM, 16-byte aligned) */
+    mov rsp, 0x200000
     and rsp, -16
 
     /* Jump to Stage 2 C kernel entry */
@@ -223,3 +223,5 @@ gdt_desc:
 
 msg_no64:
     .asciz "LinuxOSZero needs a 64-bit CPU. Enable 64-bit in VirtualBox: create the VM as 'Other Linux (64-bit)'. Booting failed."
+
+.section .note.GNU-stack,"",@progbits

@@ -41,6 +41,11 @@ void gdt_init(void) {
         "mov %%ax, %%ss\n"
         "mov %%ax, %%fs\n"
         "mov %%ax, %%gs\n"
+        "pushq $0x18\n"
+        "leaq 1f(%%rip), %%rax\n"
+        "pushq %%rax\n"
+        "lretq\n"
+        "1:\n"
         : : "r"(&gp) : "rax", "memory"
     );
 }

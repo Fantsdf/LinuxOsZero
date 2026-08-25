@@ -116,6 +116,7 @@ isr_common_stub:
 
 /* 256-entry table of ISR stub function pointers */
 .section .rodata
+.align 16
 .global isr_stub_table
 .macro STUB_PTR num
     .quad isr_stub_\num
@@ -127,3 +128,5 @@ isr_stub_table:
     STUB_PTR %j
     .set j, j + 1
 .endr
+
+.section .note.GNU-stack,"",@progbits
