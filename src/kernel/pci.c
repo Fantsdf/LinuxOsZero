@@ -28,6 +28,16 @@ void pci_write_config_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off
     outl(PCI_CONFIG_DATA, val);
 }
 
+void pci_write_config_word(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset, uint16_t val) {
+    uint32_t address = (uint32_t)((bus << 16) | (slot << 11) | (func << 8) | (offset & 0xFC) | ((uint32_t)0x80000000));
+    outl(PCI_CONFIG_ADDRESS, address);
+    uint32_t cur = inl(PCI_CONFIG_DATA);
+    int shift = (offset & 2) * 8;
+    cur &= ~(0xFFFF << shift);
+    cur |= ((uint32_t)val << shift);
+    outl(PCI_CONFIG_DATA, cur);
+}
+
 static const char *get_device_description(uint16_t vendor_id, uint16_t device_id, uint8_t class_code) {
     if (vendor_id == PCI_VENDOR_VBOX) {
         switch (device_id) {
