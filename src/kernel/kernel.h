@@ -1,5 +1,7 @@
 /*
  * LinuxOSZero - Kernel Core Headers
+ * Architecture: x86_64
+ * Version: 1.1.0 (Titan)
  */
 
 #ifndef KERNEL_H
@@ -10,8 +12,8 @@
 #include <stdbool.h>
 
 #define OS_NAME        "LinuxOSZero"
-#define OS_VERSION     "1.0.0"
-#define OS_CODENAME    "Genesis"
+#define OS_VERSION     "1.1.0"
+#define OS_CODENAME    "Titan"
 #define OS_ARCH        "x86_64"
 
 /* System info structure */

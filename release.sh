@@ -1,18 +1,21 @@
 #!/bin/bash
 # LinuxOSZero GitHub Release Automation Script
+# Architecture: x86_64
+# Version: 1.1.0 (Titan)
 set -e
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 TAG="v$VERSION"
-ISO_FILE="$REPO_ROOT/dist/LinuxOSZero-v1.0.0-x86_64.iso"
-ZIP_FILE="$REPO_ROOT/dist/LinuxOSZero-v1.0.0-x86_64.zip"
+ISO_FILE="$REPO_ROOT/dist/LinuxOSZero-v1.1.0-x86_64.iso"
+ZIP_FILE="$REPO_ROOT/dist/LinuxOSZero-v1.1.0-x86_64.zip"
 SUMS_FILE="$REPO_ROOT/dist/SHA256SUMS"
 
 echo "=========================================================="
 echo "          LinuxOSZero Release Tool (v$VERSION)            "
+echo "                 Titan Edition x86_64                     "
 echo "=========================================================="
 
 # Check if ISO exists, if not build it
@@ -34,7 +37,7 @@ echo "[+] Verifying release checksums..."
 
 ISO_SIZE=$(ls -lh "$ISO_FILE" | awk '{print $5}')
 ZIP_SIZE=$(ls -lh "$ZIP_FILE" | awk '{print $5}')
-SHA256_HASH=$(cat "$SUMS_FILE" | awk '{print $1}')
+SHA256_HASH=$(grep "LinuxOSZero-v1.1.0-x86_64.iso" "$SUMS_FILE" | awk '{print $1}')
 
 echo ""
 echo "[*] Release Artifact Information:"
@@ -59,16 +62,24 @@ if [ "$1" == "--publish" ]; then
             "$ISO_FILE" \
             "$ZIP_FILE" \
             "$SUMS_FILE" \
-            --title "LinuxOSZero v$VERSION - Genesis Edition" \
-            --notes "### LinuxOSZero v$VERSION Genesis Edition (x86_64)
+            --title "LinuxOSZero v$VERSION - Titan Edition (x86_64)" \
+            --notes "### LinuxOSZero v$VERSION Titan Edition (x86_64)
 
-Official bootable ISO release of LinuxOSZero with full VirtualBox VMSVGA graphics acceleration, ZeroDesktop window manager, and automated installer.
+Official bootable ISO release of LinuxOSZero with native 64-bit Long Mode architecture, enhanced PS/2 and evdev keyboard drivers, and resolution for VirtualBox \`DisplayWrap\` / \`IDisplay\` error \`0x8000ffff (-52)\`.
 
-#### Key Highlights:
-- **VirtualBox Hardware Integration**: VMMDev (0x80EE:0xCAFE), VBoxVideo (0x80EE:0xBEEF), Seamless Mouse Pointer, and Shared Folders.
-- **Desktop Environment**: ZeroDesktop + ZeroWM with modern Dark Cyber theme and double-buffered framebuffer rendering.
-- **System Installer**: ZeroInstaller (GUI and TUI) for automated disk partitioning, ext4 formatting, and GRUB bootloader setup.
-- **Core Userland**: zero-init (PID 1), zero-guest-agent, zpkg package manager, ZeroTerminal, ZeroControlPanel, ZeroFileManager, ZeroEditor, ZeroFetch.
+#### Key Highlights & Fixes in v1.1.0:
+- **VirtualBox DisplayWrap Bug Fix**: Resolved Guru Meditation and \`E_UNEXPECTED (0x8000ffff)\` / \`-52\` by correcting the 64-bit Page Directory entry layout (8 bytes per entry) across PML4, PDPT, and PD0-PD3.
+- **Enhanced Keyboard Subsystem**:
+  - Full PS/2 keyboard controller driver with Interrupt Service Routine (IRQ1 / INT 33) and Scan Code Set 1/2 decoder.
+  - Userspace Linux \`evdev\` subsystem polling (\`/dev/input/event*\`) and TTY / raw terminal escape parser.
+  - Support for modifiers (Shift, Ctrl, Alt, Caps Lock), Arrow navigation, Function keys (F1-F12), and US/Russian layout toggle.
+- **Interactive Terminal & Editor**:
+  - \`ZeroTerminal\`: Fully interactive shell with history buffer, cursor blinking, and rich built-in command suite (\`help\`, \`uname\`, \`vbox\`, \`fetch\`, \`zpkg\`, \`ls\`, \`cat\`, \`echo\`, \`date\`, \`calc\`, \`theme\`, etc.).
+  - \`ZeroEditor\`: Interactive text and C source editor with live typing, cursor tracking, and file operations.
+- **Native 64-bit Architecture**:
+  - Pure x86_64 freestanding kernel, 4-level paging, 16-byte IDT descriptors, and 64-bit userland binaries.
+- **VirtualBox Hardware Integration**:
+  - VMSVGA / VBoxVideo 32-bpp double-buffered rendering, VMMDev hypercall channel, seamless mouse integration, and shared folders.
 
 #### Verification:
 \`\`\`

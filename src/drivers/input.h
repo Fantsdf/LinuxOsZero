@@ -1,5 +1,6 @@
 /*
  * LinuxOSZero - Input Subsystem (Keyboard & Mouse Handling)
+ * Architecture: x86_64
  */
 
 #ifndef INPUT_H
@@ -12,10 +13,19 @@
 #define KEY_ENTER       13
 #define KEY_BACKSPACE   8
 #define KEY_TAB         9
+#define KEY_SPACE       32
+
 #define KEY_UP          1001
 #define KEY_DOWN        1002
 #define KEY_LEFT        1003
 #define KEY_RIGHT       1004
+#define KEY_PAGE_UP     1005
+#define KEY_PAGE_DOWN   1006
+#define KEY_HOME        1007
+#define KEY_END         1008
+#define KEY_INSERT      1009
+#define KEY_DELETE      1010
+
 #define KEY_F1          1011
 #define KEY_F2          1012
 #define KEY_F3          1013
@@ -26,6 +36,13 @@
 #define KEY_F8          1018
 #define KEY_F9          1019
 #define KEY_F10         1020
+#define KEY_F11         1021
+#define KEY_F12         1022
+
+#define KEY_SUPER       1030
+#define KEY_CAPS_LOCK   1031
+#define KEY_NUM_LOCK    1032
+#define KEY_SCROLL_LOCK 1033
 
 #define MOUSE_BTN_LEFT    (1 << 0)
 #define MOUSE_BTN_RIGHT   (1 << 1)
@@ -60,9 +77,12 @@ extern mouse_state_t g_mouse;
 
 int input_init(void);
 void input_poll(void);
+void input_close(void);
 void input_set_mouse_bounds(int max_w, int max_h);
 void input_inject_mouse(int x, int y, uint32_t buttons);
 void input_inject_key(int key_code, char ascii, bool pressed);
+void input_inject_key_full(int key_code, char ascii, bool pressed, bool ctrl, bool alt, bool shift);
 bool input_get_key(key_event_t *ev);
+bool input_has_key(void);
 
 #endif /* INPUT_H */

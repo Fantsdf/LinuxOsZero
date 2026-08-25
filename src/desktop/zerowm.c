@@ -1,12 +1,23 @@
 /*
- * LinuxOSZero - Window Manager Implementation
+ * LinuxOSZero - Window Manager Implementation (ZeroWM)
+ * Architecture: x86_64
  */
 
 #include "zerowm.h"
+#include "zeropanel.h"
+#include "../drivers/sound.h"
 #include <string.h>
 #include <stdio.h>
 
 wm_t g_wm = {0};
+
+/* External app launchers for global shortcuts */
+extern void app_launch_terminal(void);
+extern void app_launch_editor(void);
+extern void app_launch_file_manager(void);
+extern void app_launch_control_panel(void);
+extern void app_launch_installer(void);
+extern void app_launch_fetch(void);
 
 void wm_init(int screen_w, int screen_h) {
     g_wm.screen_w = screen_w;
@@ -87,6 +98,7 @@ void wm_destroy_window(int win_id) {
             g_wm.windows[g_wm.active_win_id].is_active = true;
         }
     }
+    sound_play(SND_WINDOW_CLOSE);
 }
 
 void wm_focus_window(int win_id) {
@@ -147,7 +159,7 @@ void wm_maximize_window(int win_id) {
         win->x = 0;
         win->y = 0;
         win->width = g_wm.screen_w;
-        win->height = g_wm.screen_h - 40; /* Leave space for bottom panel */
+        win->height = g_wm.screen_h - 40;
         win->state = WIN_STATE_MAXIMIZED;
     }
     wm_focus_window(win_id);
@@ -209,7 +221,6 @@ void wm_handle_input(mouse_state_t *mouse) {
 
                 /* Titlebar Hit Test */
                 if (mouse->y < (win->y + TITLEBAR_HEIGHT)) {
-                    /* Window Buttons: Close, Maximize, Minimize (Right-aligned) */
                     int btn_w = 16;
                     int btn_y = win->y + (TITLEBAR_HEIGHT - btn_w) / 2;
                     int close_x = win->x + win->width - 24;
@@ -253,10 +264,89 @@ void wm_handle_input(mouse_state_t *mouse) {
                 if (win->on_event) {
                     int cx = mouse->x - win->x;
                     int cy = mouse->y - (win->y + TITLEBAR_HEIGHT);
-                    win->on_event(win, 1 /* CLICK */, cx, cy);
+                    win->on_event(win, WM_EVENT_CLICK, cx, cy);
                 }
                 return;
             }
+        }
+    }
+}
+
+void wm_handle_keyboard(const key_event_t *ev) {
+    if (!ev) return;
+
+    /* Global Shortcuts (checked when pressed) */
+    if (ev->pressed) {
+        /* Super key / Windows key: Toggle Start Menu */
+        if (ev->key_code == KEY_SUPER || (ev->ctrl && ev->key_code == KEY_ESC)) {
+            g_panel.start_menu_open = !g_panel.start_menu_open;
+            return;
+        }
+
+        /* Alt + F4: Close active window */
+        if (ev->alt && ev->key_code == KEY_F4 && g_wm.active_win_id >= 0) {
+            wm_destroy_window(g_wm.active_win_id);
+            return;
+        }
+
+        /* Alt + Tab: Cycle through open windows */
+        if (ev->alt && ev->key_code == KEY_TAB && g_wm.window_count > 1) {
+            int current_idx = -1;
+            for (int i = 0; i < g_wm.window_count; i++) {
+                if (g_wm.z_order[i] == g_wm.active_win_id) {
+                    current_idx = i;
+                    break;
+                }
+            }
+            int next_idx = (current_idx > 0) ? (current_idx - 1) : (g_wm.window_count - 1);
+            int next_wid = g_wm.z_order[next_idx];
+            if (next_wid >= 0 && g_wm.windows[next_wid].id != -1) {
+                if (!g_wm.windows[next_wid].is_visible) {
+                    wm_restore_window(next_wid);
+                } else {
+                    wm_focus_window(next_wid);
+                }
+            }
+            return;
+        }
+
+        /* Ctrl + Alt + T: Open Terminal */
+        if (ev->ctrl && ev->alt && (ev->key_code == 't' || ev->key_code == 'T')) {
+            app_launch_terminal();
+            return;
+        }
+
+        /* Ctrl + Alt + E: Open Editor */
+        if (ev->ctrl && ev->alt && (ev->key_code == 'e' || ev->key_code == 'E')) {
+            app_launch_editor();
+            return;
+        }
+
+        /* Ctrl + Alt + F: Open File Manager */
+        if (ev->ctrl && ev->alt && (ev->key_code == 'f' || ev->key_code == 'F')) {
+            app_launch_file_manager();
+            return;
+        }
+
+        /* Ctrl + Alt + C: Open Control Panel */
+        if (ev->ctrl && ev->alt && (ev->key_code == 'c' || ev->key_code == 'C')) {
+            app_launch_control_panel();
+            return;
+        }
+
+        /* Ctrl + Alt + I: Open Installer */
+        if (ev->ctrl && ev->alt && (ev->key_code == 'i' || ev->key_code == 'I')) {
+            app_launch_installer();
+            return;
+        }
+    }
+
+    /* Forward keyboard event to focused active window */
+    if (g_wm.active_win_id >= 0) {
+        window_t *win = &g_wm.windows[g_wm.active_win_id];
+        if (win->is_visible && win->on_event) {
+            int ev_type = ev->pressed ? WM_EVENT_KEY_DOWN : WM_EVENT_KEY_UP;
+            win->on_event(win, ev_type, ev->key_code, (int)ev->ascii);
         }
     }
 }

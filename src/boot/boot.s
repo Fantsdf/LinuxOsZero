@@ -59,8 +59,9 @@ boot_code:
           64-bit kernel knows it can draw to the framebuffer (0xE0000000). ---- */
     mov byte ptr [0x6000], 0      /* default: text mode */
 
+    /* Try VBE Mode 0x118 (1024x768x32 with Linear Frame Buffer 0x4000) */
     mov ax, 0x4F02
-    mov bx, 0x4118                /* 1024x768x32 */
+    mov bx, 0x4118                /* 1024x768x32 LFB */
     int 0x10
     cmp ax, 0x004F
     jne .try_800
@@ -69,7 +70,7 @@ boot_code:
 
 .try_800:
     mov ax, 0x4F02
-    mov bx, 0x4115                /* 800x600x32 */
+    mov bx, 0x4115                /* 800x600x32 LFB */
     int 0x10
     cmp ax, 0x004F
     jne .try_640
@@ -78,7 +79,7 @@ boot_code:
 
 .try_640:
     mov ax, 0x4F02
-    mov bx, 0x4112                /* 640x480x32 */
+    mov bx, 0x4112                /* 640x480x32 LFB */
     int 0x10
     cmp ax, 0x004F
     jne .vbe_done
@@ -86,12 +87,12 @@ boot_code:
 
 .vbe_done:
 
-    /* ---- Enable Fast A20 ---- */
+    /* ---- Enable Fast A20 Gate ---- */
     in al, 0x92
     or al, 2
     out 0x92, al
 
-    /* ---- Copy kernel from 0x7E00 to 0x10000 (16 KB) ----
+    /* ---- Copy kernel from 0x7E00 to 0x10000 (32 KB) ----
        ds:si = 0x07E0:0x0000 , es:di = 0x1000:0x0000 */
     mov ax, 0x07E0
     mov ds, ax
@@ -99,7 +100,7 @@ boot_code:
     mov ax, 0x1000
     mov es, ax
     xor di, di
-    mov cx, 0x4000          /* 16384 bytes = max kernel size */
+    mov cx, 0x8000          /* 32768 bytes = max kernel image size */
     cld
     rep movsb
 
@@ -130,9 +131,9 @@ boot_drive:
     .byte 0x80
 
 msg_booting:
-    .asciz "LinuxOSZero Booting...\r\n"
+    .asciz "LinuxOSZero v1.1.0 Booting...\r\n"
 msg_ok:
-    .asciz "Kernel OK.\r\n"
+    .asciz "Kernel x64 OK.\r\n"
 
 .org 510
 .word 0xAA55

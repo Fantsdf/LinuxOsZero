@@ -1,5 +1,7 @@
 /*
  * LinuxOSZero - Graphical Desktop Environment (ZeroDesktop Main)
+ * Architecture: x86_64
+ * Version: 1.1.0 (Titan)
  */
 
 #include <stdio.h>
@@ -81,7 +83,7 @@ static void draw_desktop_icons(mouse_state_t *mouse) {
 static void handle_desktop_icon_clicks(mouse_state_t *mouse) {
     if (!mouse->left_clicked) return;
 
-    /* If clicked on empty desktop (no window hit) */
+    /* If clicked on desktop background */
     for (size_t i = 0; i < DESKTOP_ICON_COUNT; i++) {
         desktop_icon_t *ico = &desktop_icons[i];
         int ix = ico->x;
@@ -149,7 +151,7 @@ int main(int argc, char **argv) {
     signal(SIGTERM, sig_exit);
 
     /* Initialize Subsystems */
-    printf("[+] Инициализация графики и рабочего стола LinuxOSZero...\n");
+    printf("[+] Инициализация графики и рабочего стола LinuxOSZero v1.1.0 (x86_64)...\n");
     if (fbdev_init("/dev/fb0", 1024, 768) < 0) {
         fprintf(stderr, "Не удалось инициализировать fbdev.\n");
         return 1;
@@ -173,13 +175,20 @@ int main(int argc, char **argv) {
         sound_play(SND_WINDOW_OPEN);
     }
 
-    printf("[+] ZeroDesktop работает: %dx%d (32 bpp)\n", g_fbdev.width, g_fbdev.height);
+    printf("[+] ZeroDesktop v1.1.0 работает: %dx%d (32 bpp)\n", g_fbdev.width, g_fbdev.height);
 
     /* Main Render & Event Loop */
     while (g_running) {
+        /* Poll Mouse and Keyboard Devices */
         input_poll();
 
-        /* Process Inputs */
+        /* Process all queued keyboard events */
+        key_event_t key_ev;
+        while (input_get_key(&key_ev)) {
+            wm_handle_keyboard(&key_ev);
+        }
+
+        /* Process Mouse Inputs */
         wm_handle_input(&g_mouse);
         panel_handle_input(&g_mouse);
         handle_desktop_icon_clicks(&g_mouse);
@@ -209,6 +218,7 @@ int main(int argc, char **argv) {
         usleep(16000); /* ~60 FPS */
     }
 
+    input_close();
     fbdev_close();
     printf("[+] ZeroDesktop завершил работу корректно.\n");
     return 0;

@@ -1,8 +1,11 @@
 /*
  * LinuxOSZero - Main Kernel Entry Point
+ * Architecture: x86_64
+ * Version: 1.1.0 (Titan)
  */
 
 #include "kernel.h"
+#include "keyboard.h"
 #include "pci.h"
 #include "../drivers/vboxguest.h"
 
@@ -84,7 +87,7 @@ void kernel_main(void) {
      * screen is never black (VirtualBox VMSVGA / std VGA). */
     if (vbe_graphics_active()) {
         draw_framebuffer_gradient();
-        vga_printf("[+] Graphics mode active (VBE framebuffer)\n");
+        vga_printf("[+] Graphics mode active (VBE framebuffer 1024x768x32)\n");
     }
 
     vga_printf("==================================================\n");
@@ -105,11 +108,16 @@ void kernel_main(void) {
     idt_init();
     vga_puts("[OK]\n");
 
-    /* Step 4: PCI Bus Hardware Discovery */
+    /* Step 4: Initialize PS/2 Keyboard Driver & Subsystem */
+    vga_puts("[+] Initializing PS/2 Keyboard Driver & Scancode Decoder... ");
+    keyboard_init();
+    vga_puts("[OK]\n");
+
+    /* Step 5: PCI Bus Hardware Discovery */
     vga_puts("[+] Scanning PCI Bus for devices...\n");
     pci_init();
 
-    /* Step 5: Check Hypervisor Environment & Initialize Drivers */
+    /* Step 6: Check Hypervisor Environment & Initialize Drivers */
     if (g_sysinfo.is_virtualbox) {
         vga_printf("[+] *** Oracle VirtualBox Hypervisor Detected! ***\n");
         vga_puts("[+] Initializing VirtualBox VMMDev & Guest Additions Driver...\n");
@@ -119,7 +127,7 @@ void kernel_main(void) {
         vga_printf("[+] *** QEMU / KVM Hypervisor Detected! ***\n");
         vga_puts("[+] Display: QEMU std VGA / Bochs-VBE (0x01CE:0x01CF)\n");
         vga_puts("[+] VirtIO guest devices initialized\n");
-        vboxguest_init(); /* graceful fallback; harmless if no VMMDev */
+        vboxguest_init();
     } else if (g_sysinfo.is_vmware) {
         vga_printf("[+] *** VMware Hypervisor Detected! ***\n");
         vga_puts("[+] Display: VMware SVGA II / VBE framebuffer\n");
@@ -127,8 +135,6 @@ void kernel_main(void) {
         vga_puts("[+] Bare Metal / Generic Hardware Environment Detected\n");
     }
 
-    vga_printf("\n[+] LinuxOSZero Kernel Initialization Completed Successfully!\n");
+    vga_printf("\n[+] LinuxOSZero 64-bit Kernel Initialized Successfully!\n");
     vga_printf("[+] Transitioning to LinuxOSZero Userland & ZeroDesktop...\n\n");
-
-    /* Ready for userspace init */
 }

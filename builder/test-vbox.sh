@@ -1,12 +1,15 @@
 #!/bin/bash
 # LinuxOSZero VirtualBox & QEMU Test Script
+# Architecture: x86_64
+# Version: 1.1.0 (Titan)
 set -e
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ISO_PATH="$REPO_ROOT/dist/LinuxOSZero-v1.0.0-x86_64.iso"
+ISO_PATH="$REPO_ROOT/dist/LinuxOSZero-v1.1.0-x86_64.iso"
 
 echo "=================================================="
 echo "      LinuxOSZero VirtualBox / QEMU Test Tool     "
+echo "             Version 1.1.0 (Titan x86_64)         "
 echo "=================================================="
 
 if [ ! -f "$ISO_PATH" ]; then
@@ -17,7 +20,7 @@ fi
 echo "[*] Checking available hypervisor and emulation tools..."
 
 if which qemu-system-x86_64 >/dev/null 2>&1; then
-    echo "[+] Launching LinuxOSZero in QEMU (VirtualBox VMSVGA emulation)..."
+    echo "[+] Launching LinuxOSZero in QEMU (VirtualBox VMSVGA / 64-bit mode)..."
     qemu-system-x86_64 \
         -m 2048 \
         -smp 2 \
@@ -27,13 +30,13 @@ if which qemu-system-x86_64 >/dev/null 2>&1; then
         -display default
 elif which VBoxManage >/dev/null 2>&1; then
     echo "[+] Oracle VM VirtualBox detected on host!"
-    echo "[*] Creating VirtualBox VM 'LinuxOSZero-VM'..."
-    VBoxManage createvm --name "LinuxOSZero-VM" --ostype "Linux_64" --register
-    VBoxManage modifyvm "LinuxOSZero-VM" --memory 2048 --cpus 2 --vram 128 --graphicscontroller vmsvga --mouse usbtablet
-    VBoxManage storagectl "LinuxOSZero-VM" --name "SATA" --add sata --controller IntelAhci
-    VBoxManage storageattach "LinuxOSZero-VM" --storagectl "SATA" --port 0 --device 0 --type dvddrive --medium "$ISO_PATH"
+    echo "[*] Creating VirtualBox VM 'LinuxOSZero-v1.1-VM'..."
+    VBoxManage createvm --name "LinuxOSZero-v1.1-VM" --ostype "Linux_64" --register || true
+    VBoxManage modifyvm "LinuxOSZero-v1.1-VM" --memory 2048 --cpus 2 --vram 128 --graphicscontroller vmsvga --mouse usbtablet --pae on --longmode on
+    VBoxManage storagectl "LinuxOSZero-v1.1-VM" --name "SATA" --add sata --controller IntelAhci || true
+    VBoxManage storageattach "LinuxOSZero-v1.1-VM" --storagectl "SATA" --port 0 --device 0 --type dvddrive --medium "$ISO_PATH"
     echo "[+] Starting VirtualBox VM..."
-    VBoxManage startvm "LinuxOSZero-VM"
+    VBoxManage startvm "LinuxOSZero-v1.1-VM"
 else
     echo "=================================================="
     echo "   VirtualBox Manual VM Setup Instructions:"
@@ -45,13 +48,14 @@ else
     echo "   ISO Image: Select '$ISO_PATH'"
     echo "3. Hardware:"
     echo "   - Base Memory: 2048 MB (or 4096 MB)"
-    echo "   - Processors: 2 CPUs"
+    echo "   - Processors: 2 CPUs (Enable PAE/NX: ON)"
     echo "4. Hard Disk:"
     echo "   - Create a Virtual Hard Disk: 20.00 GB (VDI dynamic)"
     echo "5. Settings -> Display:"
     echo "   - Video Memory: 128 MB"
     echo "   - Graphics Controller: VMSVGA (or VBoxSVGA)"
     echo "   - Enable 3D Acceleration: Checked"
+    echo "   - Auto-resize Guest Display: Supported & fixed"
     echo "6. Settings -> General -> Advanced:"
     echo "   - Shared Clipboard: Bidirectional"
     echo "   - Drag'n'Drop: Bidirectional"

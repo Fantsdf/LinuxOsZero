@@ -1,5 +1,6 @@
 /*
- * LinuxOSZero - Terminal Emulator (ZeroTerminal)
+ * LinuxOSZero - Terminal Emulator Header
+ * Architecture: x86_64
  */
 
 #ifndef TERMINAL_H

@@ -1,5 +1,7 @@
 /*
  * LinuxOSZero - Taskbar & Start Menu Implementation
+ * Architecture: x86_64
+ * Version: 1.1.0 (Titan)
  */
 
 #include "zeropanel.h"
@@ -7,6 +9,7 @@
 #include "../gui/canvas.h"
 #include "../gui/font.h"
 #include "../gui/icons.h"
+#include "../drivers/sound.h"
 #include "../kernel/kernel.h"
 #include <time.h>
 #include <stdio.h>
@@ -30,7 +33,7 @@ typedef struct {
 
 static const menu_item_t menu_items[] = {
     { "Установить LinuxOSZero",        ICON_INSTALLER,     app_launch_installer },
-    { "Терминал",                      ICON_TERMINAL,      app_launch_terminal },
+    { "Терминал (x86_64)",             ICON_TERMINAL,      app_launch_terminal },
     { "Файловый менеджер",             ICON_FILE_MANAGER,  app_launch_file_manager },
     { "Параметры и драйверы",          ICON_CONTROL_PANEL, app_launch_control_panel },
     { "Текстовый редактор",            ICON_EDITOR,        app_launch_editor },
@@ -67,7 +70,9 @@ void panel_handle_input(mouse_state_t *mouse) {
                     if (mouse->y >= item_top && mouse->y < (item_top + 34)) {
                         g_panel.start_menu_open = false;
                         if (menu_items[i].launch) {
+                            sound_play(SND_CLICK);
                             menu_items[i].launch();
+                            sound_play(SND_WINDOW_OPEN);
                         }
                         return;
                     }
@@ -84,6 +89,7 @@ void panel_handle_input(mouse_state_t *mouse) {
         /* Start Button Hit Test */
         if (mouse->x >= 6 && mouse->x < 110) {
             g_panel.start_menu_open = !g_panel.start_menu_open;
+            sound_play(SND_CLICK);
             return;
         }
 
@@ -103,6 +109,7 @@ void panel_handle_input(mouse_state_t *mouse) {
                 } else {
                     wm_focus_window(wid);
                 }
+                sound_play(SND_CLICK);
                 return;
             }
             task_x += task_w + 4;
@@ -148,18 +155,18 @@ void panel_render(void) {
     }
 
     /* 4. System Tray (Right-aligned) */
-    int tray_x = g_panel.screen_w - 220;
+    int tray_x = g_panel.screen_w - 240;
 
     /* VirtualBox Badge */
-    canvas_fill_rounded_rect(tray_x, panel_y + 8, 64, 24, 4, COLOR_RGB(30, 41, 59));
-    canvas_draw_rounded_rect(tray_x, panel_y + 8, 64, 24, 4, COLOR_RGB(51, 65, 85));
-    font_draw_string(tray_x + 6, panel_y + 12, "VBox", COLOR_RGB(34, 197, 94), COLOR_RGBA(0, 0, 0, 0));
+    canvas_fill_rounded_rect(tray_x, panel_y + 8, 70, 24, 4, COLOR_RGB(30, 41, 59));
+    canvas_draw_rounded_rect(tray_x, panel_y + 8, 70, 24, 4, COLOR_RGB(51, 65, 85));
+    font_draw_string(tray_x + 6, panel_y + 12, "VBox x64", COLOR_RGB(34, 197, 94), COLOR_RGBA(0, 0, 0, 0));
 
     /* Network Icon */
-    icons_draw(ICON_NETWORK, tray_x + 72, panel_y + 12, 16, COLOR_RGB(34, 197, 94));
+    icons_draw(ICON_NETWORK, tray_x + 78, panel_y + 12, 16, COLOR_RGB(34, 197, 94));
 
     /* Volume Icon */
-    icons_draw(ICON_VOLUME, tray_x + 96, panel_y + 12, 16, COLOR_RGB(248, 250, 252));
+    icons_draw(ICON_VOLUME, tray_x + 102, panel_y + 12, 16, COLOR_RGB(248, 250, 252));
 
     /* Clock */
     time_t rawtime = time(NULL);
@@ -170,7 +177,7 @@ void panel_render(void) {
     } else {
         strcpy(time_str, "12:00:00");
     }
-    font_draw_string(tray_x + 124, panel_y + 12, time_str, g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
+    font_draw_string(tray_x + 130, panel_y + 12, time_str, g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
 
     /* 5. Start Menu Popup Rendering */
     if (g_panel.start_menu_open) {
@@ -187,8 +194,8 @@ void panel_render(void) {
         /* Menu Header */
         canvas_fill_rounded_rect(menu_x + 2, menu_y + 2, menu_w - 4, 40, 6, g_theme.win_titlebar_active);
         icons_draw_logo(menu_x + 22, menu_y + 22, 12);
-        font_draw_string(menu_x + 42, menu_y + 10, "LinuxOSZero v1.0", g_theme.btn_text, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(menu_x + 42, menu_y + 24, "Genesis Desktop", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(menu_x + 42, menu_y + 10, "LinuxOSZero v1.1", g_theme.btn_text, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(menu_x + 42, menu_y + 24, "Titan x86_64 Edition", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
 
         /* Menu Items */
         int list_y = menu_y + 48;
@@ -201,6 +208,6 @@ void panel_render(void) {
 
         /* Power Actions */
         int bot_y = menu_y + menu_h - 22;
-        font_draw_string(menu_x + 12, bot_y, "VirtualBox Guest Active", COLOR_RGB(34, 197, 94), COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(menu_x + 12, bot_y, "VirtualBox & Keyboard Ready", COLOR_RGB(34, 197, 94), COLOR_RGBA(0, 0, 0, 0));
     }
 }

@@ -1,5 +1,7 @@
 /*
  * LinuxOSZero - Custom Init System (PID 1)
+ * Architecture: x86_64
+ * Version: 1.1.0 (Titan)
  * Binary: /sbin/init or /init
  */
 
@@ -18,7 +20,7 @@
 #include <errno.h>
 #include <stdbool.h>
 
-#define INIT_VERSION "1.0.0"
+#define INIT_VERSION "1.1.0 (Titan x86_64)"
 
 static volatile sig_atomic_t g_running = 1;
 static volatile sig_atomic_t g_reboot_req = 0;
@@ -52,7 +54,7 @@ static void print_banner(void) {
     printf(" | |___| | | | | |_| |>  <| |__| |\\___ \\ / /|  __/ | | (_) |        \n");
     printf(" |_____|_|_| |_|\\__,_/_/\\_\\\\____/ |_____//___|\\___|_|  \\___/  v%s\n", INIT_VERSION);
     printf("\033[0m\n");
-    printf("[*] LinuxOSZero Core Init PID 1 Starting Up...\n");
+    printf("[*] LinuxOSZero Core Init PID 1 Starting Up (64-bit Long Mode)...\n");
 }
 
 static int mount_fs(const char *source, const char *target, const char *fstype, unsigned long flags, const void *data) {
@@ -155,7 +157,7 @@ int main(int argc, char **argv) {
 
     print_banner();
     init_filesystems();
-    set_system_hostname("LinuxOSZero");
+    set_system_hostname("linuxoszero");
 
     /* Execute system initialization */
     run_script("/etc/init.d/rc.sysinit");
@@ -198,7 +200,7 @@ int main(int argc, char **argv) {
         int status;
         pid_t p = wait(&status);
         if (p == desktop_pid) {
-            /* If desktop exited, restart or provide console fallback */
+            /* If desktop exited, restart */
             printf("[*] ZeroDesktop session ended (status: %d). Respawning...\n", status);
             sleep(1);
             desktop_pid = fork();

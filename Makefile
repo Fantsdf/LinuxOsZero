@@ -1,6 +1,6 @@
 # ==============================================================================
 # Makefile for LinuxOSZero Operating System
-# Version: 1.0.0 (Genesis)
+# Version: 1.1.0 (Titan x86_64)
 # ==============================================================================
 
 CC ?= gcc
@@ -14,14 +14,14 @@ BUILD := $(REPO_ROOT)/build
 all: kernel tools desktop rootfs iso
 
 help:
-	@echo "LinuxOSZero Build System"
+	@echo "LinuxOSZero Build System v1.1.0 (Titan x86_64)"
 	@echo "Available targets:"
-	@echo "  make all       - Build entire OS, kernel, desktop, and bootable ISO"
-	@echo "  make kernel    - Build MBR bootloader and 64-bit kernel"
+	@echo "  make all       - Build entire OS, 64-bit kernel, desktop, and bootable ISO"
+	@echo "  make kernel    - Build MBR bootloader and 64-bit Long Mode kernel"
 	@echo "  make desktop   - Build ZeroDesktop and ZeroWM graphical shell"
 	@echo "  make tools     - Build zero-init, zero-guest-agent, zero-fetch, etc."
 	@echo "  make rootfs    - Assemble root filesystem and compressed initramfs"
-	@echo "  make iso       - Generate bootable hybrid ISO for VirtualBox/PC"
+	@echo "  make iso       - Generate bootable hybrid ISO for VirtualBox/QEMU/PC"
 	@echo "  make test      - Test ISO in VirtualBox / QEMU"
 	@echo "  make preview   - Start interactive desktop (port 8080)"
 	@echo "  make clean     - Remove compiled binaries and build artifacts"
@@ -44,6 +44,7 @@ desktop:
 	  src/drivers/render3d.c \
 	  src/drivers/vboxguest.c \
 	  src/drivers/vboxvideo.c \
+	  src/kernel/keyboard.c \
 	  src/kernel/pci.c \
 	  src/gui/font.c \
 	  src/gui/theme.c \
@@ -78,9 +79,6 @@ test:
 	@bash ./builder/test-vbox.sh
 
 test-qemu:
-	@bash ./builder/test-qemu.sh
-
-test-qemu-test:
 	@bash ./builder/test-qemu.sh
 
 preview:
