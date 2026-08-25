@@ -2,6 +2,7 @@
 build/
 *.o
 *.iso
+!dist/LinuxOSZero-v1.0.0-x86_64.iso
 !dist/SHA256SUMS
 
 # Node modules
