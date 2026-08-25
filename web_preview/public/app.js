@@ -199,10 +199,124 @@ function showTextSession(){
 function termLine(t,c=''){ return `<div class="${c}">${t}</div>`; }
 function runTermCommand(cmd,out){
   const c=cmd.trim(); if(!c)return;
-  const parts=c.split(/\s+/); const prog=parts[0].toLowerCase(); const args=parts.slice(1);
+  const parts=c.split(/\s+/); const rawProg=parts[0].toLowerCase(); const prog=rawProg.startsWith('/')?rawProg.slice(1):rawProg; const args=parts.slice(1);
   let res='';
   switch(prog){
-    case 'help': res=termLine('Доступно: help, ls, cd, pwd, cat, touch, mkdir, rm, echo, edit, uname, neofetch, net, apps, clear, logout'); break;
+    case 'help': case '?':
+      res=termLine(`
+<span class="term-prompt" style="font-weight:bold;">=== LinuxOSZero v1.1.0 (Titan) Доступные Команды ===</span>
+<span style="color:#eab308;font-weight:bold;">[СИСТЕМА]</span>
+  <b>uname -a</b>        - Архитектура ядра и версия ОС
+  <b>fetch / neofetch</b> - Системная информация и цветной логотип
+  <b>whoami</b>          - Текущий пользователь и права доступа
+  <b>uptime</b>          - Время непрерывной работы системы
+  <b>date</b>            - Текущая дата и системное время
+  <b>free</b>            - Использование оперативной памяти (RAM)
+  <b>ps</b>              - Список активных процессов
+  <b>clear</b>           - Очистить экран терминала
+<span style="color:#22c55e;font-weight:bold;">[ДРАЙВЕРЫ И ОБОРУДОВАНИЕ]</span>
+  <b>driver-install</b>   - <span style="color:#22c55e;">Автоматический интерактивный установщик драйверов</span> (/install)
+  <b>vbox</b>             - Диагностика VirtualBox VMMDev и VMSVGA
+  <b>pci</b>              - Сканирование и список устройств на шине PCI
+  <b>video</b>            - Разрешение экрана и 3D-ускоритель VMSVGA
+  <b>audio</b>            - Статус звукового контроллера Intel AC'97
+  <b>layout &lt;en|ru&gt;</b>   - Переключение раскладки (или Alt+Shift)
+<span style="color:#38bdf8;font-weight:bold;">[УТИЛИТЫ И ФАЙЛЫ]</span>
+  <b>ls [путь]</b>        - Список файлов и директорий
+  <b>cat &lt;файл&gt;</b>       - Просмотр содержимого файла
+  <b>touch &lt;файл&gt;</b>     - Создать пустой файл
+  <b>mkdir &lt;папка&gt;</b>    - Создать директорию
+  <b>rm &lt;файл&gt;</b>        - Удалить файл
+  <b>echo &lt;текст&gt;</b>     - Вывод текста в терминал (или echo &gt; file.txt)
+  <b>edit [файл]</b>      - Открыть текстовый редактор ZeroEditor
+  <b>calc &lt;выражение&gt;</b> - Интерактивный калькулятор (e.g. calc 100 * 4)
+  <b>matrix</b>           - Цифровой дождь матрицы
+  <b>theme &lt;dark|light&gt;</b> - Переключение темы оформления
+  <b>zpkg list</b>        - Список установленных пакетов
+  <b>apps</b>             - Открыть центр приложений
+  <b>reboot</b>           - Перезагрузка системы
+  <b>logout</b>           - Завершить сеанс пользователя
+`);
+      break;
+    case 'driver-install': case 'install': case 'install-drivers':
+      res=termLine(`
+<span class="term-prompt" style="font-weight:bold;">[*] ===========================================================</span>
+<span class="term-prompt" style="font-weight:bold;">[*]     Установщик оборудования LinuxOSZero (Titan Edition)     </span>
+<span class="term-prompt" style="font-weight:bold;">[*] ===========================================================</span>
+<span style="color:#94a3b8;">[+] Сканирование шины PCI и конфигурационного пространства...</span>
+<span style="color:#22c55e;">[✓] Обнаружен: Oracle VirtualBox VMMDev (0x80EE:0xCAFE, Port 0xD020)</span>
+    -> Загрузка Ring-0 драйвера гостевых дополнений... [<span style="color:#22c55e;">OK</span>]
+<span style="color:#22c55e;">[✓] Обнаружен: Oracle VirtualBox VMSVGA 3D (0x80EE:0xBEEF)</span>
+    -> Настройка 1024x768x32 3D Linear Framebuffer... [<span style="color:#22c55e;">OK</span>]
+<span style="color:#22c55e;">[✓] Обнаружен: Intel 82540EM Gigabit Ethernet (0x8086:0x100E)</span>
+    -> Инициализация сети NAT / DHCP... [<span style="color:#22c55e;">OK</span>]
+<span style="color:#22c55e;">[✓] Обнаружен: Intel 82801AA AC'97 Audio Controller (0x8086:0x2415)</span>
+    -> Инициализация драйвера звука WASAPI/Host... [<span style="color:#22c55e;">OK</span>]
+<span style="color:#22c55e;">[✓] Обнаружен: PS/2 i8042 Контроллер клавиатуры и мыши</span>
+    -> Включение скан-кодов Set 1/2 + раскладки US/RU... [<span style="color:#22c55e;">OK</span>]
+<span style="color:#22c55e;">[✓] Общие папки VirtualBox (/media/sf_shared)... [СМОНТИРОВАНО]</span>
+<span style="color:#22c55e;">[✓] Абсолютное позиционирование мыши (Seamless Mouse)... [АКТИВНО]</span>
+<span style="color:#22c55e;font-weight:bold;">[+] Статус установки драйверов: [ 100% ЗАВЕРШЕНО ]</span>
+<span style="color:#f8fafc;">[+] Все аппаратные драйверы успешно установлены и работают стабильно!</span>
+`);
+      break;
+    case 'vbox': case 'zero-hwprobe':
+      res=termLine(`
+<span class="term-prompt" style="font-weight:bold;">[*] Диагностика гипервизора Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)</span>
+<span style="color:#22c55e;">[OK] VMMDev Channel (PCI 0x80EE:0xCAFE, Port 0xD020): ПОДКЛЮЧЁН</span>
+<span style="color:#22c55e;">[OK] VMSVGA Display: 1024x768x32 с аппаратным 3D-ускорением (DisplayWrap Fixed)</span>
+<span style="color:#22c55e;">[OK] Guru Meditation 1155 (Triple Fault): УСТРАНЁН (Стек в Extended RAM 0x200000)</span>
+<span style="color:#22c55e;">[OK] Драйвер клавиатуры PS/2: АКТИВЕН (Скан-коды Set 1/2 + переключение раскладки)</span>
+<span style="color:#22c55e;">[OK] Интеграция указателя мыши (USB Tablet): АКТИВНА</span>
+<span style="color:#22c55e;">[OK] Общие папки (/media/sf_shared): СМОНТИРОВАНЫ</span>
+`);
+      break;
+    case 'pci':
+      res=termLine(`
+<span class="term-prompt" style="font-weight:bold;">Обнаруженные устройства на шине PCI:</span>
+  [00:00.0] Host Bridge       : Intel Corporation 82440FX (PIIX3)
+  [00:01.0] ISA Bridge        : Intel Corporation 82371SB PIIX3
+  [00:01.1] IDE Storage       : Intel Corporation 82371AB PIIX4 IDE
+  [00:02.0] VGA Controller    : InnoTek / Oracle VMSVGA Graphics Adapter
+  [00:03.0] Network Controller: Intel Corporation 82540EM Gigabit Ethernet
+  [00:04.0] System Peripheral : Oracle VM VirtualBox Guest Additions (VMMDev)
+  [00:05.0] Audio Controller  : Intel Corporation 82801AA AC'97 Audio
+  [00:06.0] USB Controller    : Apple Computer KeyLargo USB OHCI
+  [00:0b.0] USB Controller    : Intel Corporation 82801FB/FBM USB2 EHCI
+  [00:0d.0] SATA Controller   : Intel Corporation 82801HM/HEM AHCI Controller
+`);
+      break;
+    case 'video':
+      res=termLine(`
+<span class="term-prompt">Видеоподсистема:</span> InnoTek/VirtualBox VMSVGA (0x80EE:0xBEEF)
+  Разрешение: 1024 x 768 @ 32 bpp (Linear Framebuffer 0xE0000000)
+  Pitch     : 4096 байт на строку
+  Статус    : Аппаратное 2D/3D ускорение активно
+`);
+      break;
+    case 'audio':
+      res=termLine(`
+<span class="term-prompt">Аудиоподсистема:</span> Intel 82801AA AC'97 Audio Controller
+  Порты     : 0xD100 (NAM) / 0xD200 (NABM)
+  Каналы    : Stereo 16-bit 48000 Hz HostAudioWas
+  Статус    : Микшер разглушен, вывод звука активен
+`);
+      break;
+    case 'layout':
+      if(args[0]==='ru'){ res=termLine('Раскладка клавиатуры переключена на: <b>RU (Русская)</b>'); }
+      else { res=termLine('Раскладка клавиатуры переключена на: <b>US (English)</b>'); }
+      break;
+    case 'zpkg': case 'pkg':
+      res=termLine(`
+<span class="term-prompt">База данных пакетов zpkg v1.1.0:</span>
+  base-system-1.1.0-x86_64       [<span style="color:#22c55e;">установлен</span>]
+  zero-kernel-titan-x86_64       [<span style="color:#22c55e;">установлен</span>]
+  zero-desktop-wm-1.1.0          [<span style="color:#22c55e;">установлен</span>]
+  vbox-guest-additions-7.2.4     [<span style="color:#22c55e;">установлен</span>]
+  zero-apps-suite-titan          [<span style="color:#22c55e;">установлен</span>]
+  ps2-evdev-keyboard-drivers     [<span style="color:#22c55e;">установлен</span>]
+`);
+      break;
     case 'pwd': res=termLine('/home/'+currentUser); break;
     case 'ls': {
       const p=ZERO_FS.normalizePath(args[0]||cwd());
@@ -218,14 +332,65 @@ function runTermCommand(cmd,out){
       if(args[0]==='>'){ ZERO_FS.writeFile(cwd()+'/'+(args[1]||'file.txt'),body); res=termLine('Записано в файл'); }
       else res=termLine(c.slice(5));
       break; }
-    case 'edit': { openApp('editor'); res=termLine('Открыт редактор'); break; }
-    case 'uname': res=termLine('Linux linuxoszero 6.1.0-zero x86_64'); break;
-    case 'neofetch': res=termLine('\n<span class="term-success">'+currentUser+'@linuxoszero</span>\nОС: LinuxOSZero 1.0.0 (Genesis)\nЯдро: 6.1.0-zero-x86_64\nГрафика: 3D/2D ускорение\nИнтернет: подключён'); break;
-    case 'net': res=termLine('eth0: 192.168.56.10 (DHCP) — онлайн'); break;
+    case 'edit': { openApp('editor'); res=termLine('Открыт редактор ZeroEditor'); break; }
+    case 'uname': res=termLine('Linux linuxoszero 6.1.0-zero-titan #1 SMP PREEMPT x86_64 GNU/Linux'); break;
+    case 'fetch': case 'neofetch':
+      res=termLine(`
+<span style="color:#38bdf8;">   .---.       </span><span class="term-success">${currentUser}@linuxoszero</span>
+<span style="color:#38bdf8;">  /     \\      </span>----------------------------------------
+<span style="color:#38bdf8;"> | () () |     </span><b>ОС</b>     : LinuxOSZero 1.1.0 (Titan Edition) x86_64
+<span style="color:#38bdf8;">  \\  _  /      </span><b>Хост</b>   : Oracle VM VirtualBox 7.2.4
+<span style="color:#38bdf8;">   '---'       </span><b>Ядро</b>   : 6.1.0-zero-titan x86_64 Long Mode
+               <b>Дисплей</b>: VMSVGA 1024x768 @ 32 bpp (LFB 0xE0000000)
+               <b>ОЗУ</b>    : 245 МБ / 2048 МБ
+               <b>Драйверы</b>: VMMDev, VMSVGA, AC97, E1000, PS/2 [<span style="color:#22c55e;">АКТИВНЫ</span>]
+`);
+      break;
+    case 'whoami': res=termLine('user (UID 1000, GID 1000, Группы: wheel, video, audio, vboxsf, sudo)'); break;
+    case 'date': res=termLine(new Date().toUTCString()); break;
+    case 'uptime': res=termLine('up 1 hour, 48 mins, 1 user, load average: 0.02, 0.01, 0.00'); break;
+    case 'free':
+      res=termLine(`
+               total        used        free      shared  buff/cache   available
+Mem:         2048000      250880     1797120        4096       32768     1793024
+Swap:              0           0           0
+`);
+      break;
+    case 'ps':
+      res=termLine(`
+  PID TTY          TIME CMD
+    1 ?        00:00:01 zero-init (PID 1)
+   42 ?        00:00:00 zero-guest-agent (VMMDev)
+  100 tty1     00:00:05 zero-desktop (ZeroWM)
+  105 tty1     00:00:01 zero-terminal
+`);
+      break;
+    case 'calc': {
+      try {
+        const expr = args.join(' ');
+        if (!expr) { res=termLine('Использование: calc &lt;выражение&gt; (например: calc 42 * 2 + 10)'); }
+        else {
+          // Safe integer/float eval
+          const sanitized = expr.replace(/[^0-9+\-*/(). %]/g, '');
+          const val = Function('"use strict";return (' + sanitized + ')')();
+          res=termLine(`= <span style="color:#22c55e;font-weight:bold;">${val}</span>`);
+        }
+      } catch(e) { res=termLine('calc: ошибка вычисления выражения'); }
+      break;
+    }
+    case 'matrix':
+      res=termLine('<span style="color:#22c55e;">Wake up, Neo... LinuxOSZero 64-bit Long Mode has you.<br>Follow the white rabbit. VirtualBox and PS/2 keyboard drivers: [OK]</span>');
+      break;
+    case 'theme':
+      if (args[0] === 'light') { applyTheme('light'); res=termLine('Установлена светлая тема'); }
+      else { applyTheme('dark'); res=termLine('Установлена тёмная кибер-тема'); }
+      break;
+    case 'net': res=termLine('eth0: 10.0.2.15 (DHCP / NAT) — подключён к сети'); break;
     case 'apps': { openApp('store'); res=termLine('Открыт магазин приложений'); break; }
+    case 'reboot': res=termLine('<span style="color:#eab308;">Перезагрузка виртуальной машины...</span>'); setTimeout(()=>location.reload(), 1000); return;
     case 'logout': setTimeout(()=>{ document.getElementById('text-session')?.remove(); osContainer.classList.add('hidden'); loginScreen.classList.remove('hidden'); },300); return;
     case 'clear': out.innerHTML=''; out.scrollTop=0; return;
-    default: res=termLine(`zero: команда не найдена: ${prog} (help)`);
+    default: res=termLine(`zero: команда не найдена: ${rawProg}. Введите <b>help</b> или <b>/help</b> для списка.`);
   }
   if(res) out.insertAdjacentHTML('beforeend',res);
   out.scrollTop=out.scrollHeight;

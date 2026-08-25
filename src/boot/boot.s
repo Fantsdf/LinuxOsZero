@@ -55,35 +55,59 @@ boot_code:
     mov si, offset msg_booting
     call print_str
 
-    /* ---- Try to set a graphics mode. Store 1 at 0x6000 on success so the
+    /* ---- Try to set a graphics mode. Store info at 0x6000 on success so the
           64-bit kernel knows it can draw to the framebuffer (0xE0000000). ---- */
     mov byte ptr [0x6000], 0      /* default: text mode */
 
-    /* Try VBE Mode 0x118 (1024x768x32 with Linear Frame Buffer 0x4000) */
+    /* Query Mode 0x118 info into 0x5000 */
+    mov ax, 0x4F01
+    mov cx, 0x0118
+    mov di, 0x5000
+    int 0x10
+
+    /* Try VBE Mode 0x118 (1024x768 with Linear Frame Buffer 0x4000) */
     mov ax, 0x4F02
-    mov bx, 0x4118                /* 1024x768x32 LFB */
+    mov bx, 0x4118                /* 1024x768 LFB */
     int 0x10
     cmp ax, 0x004F
     jne .try_800
     mov byte ptr [0x6000], 1
+    /* Save width, height, bpp, pitch, fb base */
+    mov ax, [0x5012]              /* XResolution */
+    mov [0x6002], ax
+    mov ax, [0x5014]              /* YResolution */
+    mov [0x6004], ax
+    mov al, [0x5019]              /* BitsPerPixel */
+    mov [0x6006], al
+    mov ax, [0x5010]              /* BytesPerScanLine (pitch) */
+    mov [0x6008], ax
+    mov eax, [0x5028]             /* PhysBasePtr */
+    mov [0x600C], eax
     jmp .vbe_done
 
 .try_800:
-    mov ax, 0x4F02
-    mov bx, 0x4115                /* 800x600x32 LFB */
+    /* Query Mode 0x115 info into 0x5000 */
+    mov ax, 0x4F01
+    mov cx, 0x0115
+    mov di, 0x5000
     int 0x10
-    cmp ax, 0x004F
-    jne .try_640
-    mov byte ptr [0x6000], 1
-    jmp .vbe_done
 
-.try_640:
     mov ax, 0x4F02
-    mov bx, 0x4112                /* 640x480x32 LFB */
+    mov bx, 0x4115                /* 800x600 LFB */
     int 0x10
     cmp ax, 0x004F
     jne .vbe_done
     mov byte ptr [0x6000], 1
+    mov ax, [0x5012]
+    mov [0x6002], ax
+    mov ax, [0x5014]
+    mov [0x6004], ax
+    mov al, [0x5019]
+    mov [0x6006], al
+    mov ax, [0x5010]
+    mov [0x6008], ax
+    mov eax, [0x5028]
+    mov [0x600C], eax
 
 .vbe_done:
 
@@ -92,7 +116,7 @@ boot_code:
     or al, 2
     out 0x92, al
 
-    /* ---- Copy kernel from 0x7E00 to 0x10000 (32 KB) ----
+    /* ---- Copy kernel from 0x7E00 to 0x10000 (64 KB) ----
        ds:si = 0x07E0:0x0000 , es:di = 0x1000:0x0000 */
     mov ax, 0x07E0
     mov ds, ax
@@ -100,7 +124,7 @@ boot_code:
     mov ax, 0x1000
     mov es, ax
     xor di, di
-    mov cx, 0x8000          /* 32768 bytes = max kernel image size */
+    xor cx, cx              /* 65536 bytes (cx=0 with rep movsb copies 65536 bytes = 64 KB) */
     cld
     rep movsb
 
