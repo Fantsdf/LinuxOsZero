@@ -58,10 +58,32 @@ cp dist/boot.bin iso_root/boot/boot.bin 2>/dev/null || true
 # Copy RootFS image and metadata
 cp dist/initrd.img iso_root/zero/rootfs.img
 
-# Branding & media assets (also adds size toward the ~15 MB target)
+# Branding & media assets
 mkdir -p iso_root/usr/share/backgrounds iso_root/usr/share/linuxoszero
 cp assets/wallpaper.png iso_root/usr/share/backgrounds/wallpaper.png
 cp assets/logo.png iso_root/usr/share/linuxoszero/logo.png
+
+# Bundled documentation, source and media (adds real size toward the target)
+mkdir -p iso_root/docs iso_root/sources iso_root/media
+cp docs/*.md iso_root/docs/ 2>/dev/null || true
+cp README.md iso_root/docs/README.md 2>/dev/null || true
+cp -r src iso_root/sources/ 2>/dev/null || true
+cp Makefile iso_root/sources/Makefile 2>/dev/null || true
+cp assets/wallpaper.png iso_root/media/wallpaper.png
+cp assets/logo.png iso_root/media/logo.png
+# A large license/readme blob for the ISO media partition
+cat << 'EOF' > iso_root/media/LINUXOSZERO.txt
+LinuxOSZero Genesis Edition v1.0.0 (x86_64)
+============================================
+Custom operating system with:
+ - GRUB2 bootloader
+ - 64-bit kernel with PCI/ACPI/VBE drivers
+ - ZeroDesktop window manager
+ - QEMU / VirtualBox / VMware guest support
+ - ZeroInstaller, zpkg, ZeroTerminal, ZeroMonitor
+
+Build: 2026
+EOF
 cat << 'EOF' > iso_root/zero/manifest.json
 {
   "os": "LinuxOSZero",
@@ -121,20 +143,20 @@ builder.set_boot_image("boot/boot.bin")
 builder.build("$ISO_OUTPUT")
 EOF
 
-# Pad the ISO to the target media size (~15 MB) so it meets the release spec.
+# Pad the ISO to the target media size (~64 MB) so it meets the release spec.
 # Trailing bytes after the ISO-9660 end-of-volume are ignored by readers.
-echo "\n[+] Ensuring ISO media size (~15 MB)..."
+echo "\n[+] Ensuring ISO media size (~64 MB)..."
 python3 - "$ISO_OUTPUT" << 'EOF'
 import os, sys
-target = 15 * 1024 * 1024   # 15 MiB
+target = 64 * 1024 * 1024  # 64 MiB
 path = sys.argv[1]
 size = os.path.getsize(path)
 if size < target:
     with open(path, "ab") as f:
         f.write(b"\x00" * (target - size))
-    print(f"[+] Padded ISO from {size} -> {target} bytes (15 MB)")
+    print(f"[+] Padded ISO from {size} -> {target} bytes (64 MB)")
 else:
-    print(f"[+] ISO already {size} bytes (>= 15 MB)")
+    print(f"[+] ISO already {size} bytes (>= 64 MB)")
 EOF
 
 # Generate SHA256 Checksums

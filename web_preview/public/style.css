@@ -395,3 +395,93 @@ body[data-theme="ocean"] .login-bg {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ============================================================================
+   GRUB BOOT MENU  (classic GNU GRUB look)
+   ============================================================================ */
+#grub-screen {
+  position: fixed; inset: 0; z-index: 5500;
+  background: #000;
+  display: flex; flex-direction: column;
+  font-family: "Courier New", monospace;
+}
+.grub-topbar {
+  padding: 10px 20px; color: #a0a0a0; font-size: 14px;
+  border-bottom: 1px solid #2a2a2a; background: #0c0c0c;
+}
+.grub-frame { flex: 1; display: flex; align-items: center; justify-content: center; }
+.grub-inner { width: min(720px, 92vw); }
+.grub-title { color: #ccc; font-size: 18px; font-weight: bold; margin-bottom: 16px; }
+.grub-menu { display: flex; flex-direction: column; gap: 6px; }
+.grub-item {
+  color: #ddd; font-size: 16px; padding: 10px 16px; cursor: pointer;
+  border: 1px solid transparent; transition: all 0.15s;
+}
+.grub-item .grub-caret { visibility: hidden; margin-right: 8px; color: #58b4ff; }
+.grub-item:hover { background: #1a1a1a; }
+.grub-item.selected { background: #10345e; border: 1px solid #2f6fd0; color: #fff; }
+.grub-item.selected .grub-caret { visibility: visible; }
+.grub-footer { color: #666; font-size: 13px; margin-top: 28px; border-top: 1px solid #222; padding-top: 12px; }
+.grub-footer b { color: #999; }
+
+/* ============================================================================
+   LOADING SCREEN
+   ============================================================================ */
+#loading-screen {
+  position: fixed; inset: 0; z-index: 5200;
+  background: #000;
+  display: flex; align-items: center; justify-content: center;
+}
+#loading-screen:not(.hidden) { display: flex; }
+.loading-inner { width: min(420px, 88vw); text-align: center; }
+.loading-logo { width: 96px; height: 96px; border-radius: 22px; margin-bottom: 22px; animation: spinPulse 1.6s ease-in-out infinite; box-shadow: 0 0 40px rgba(14,165,233,0.6); }
+@keyframes spinPulse { 0%,100% { transform: scale(1); filter: brightness(1);} 50% { transform: scale(1.06); filter: brightness(1.2);} }
+.loading-text { font-family: "Courier New", monospace; color: #7dd3fc; font-size: 18px; font-weight: bold; letter-spacing: 1px; margin-bottom: 16px; }
+.loading-bar { width: 100%; height: 12px; background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; overflow: hidden; }
+.loading-fill { height: 100%; background: linear-gradient(90deg, #0ea5e9, #38bdf8, #a78bfa); transition: width 0.2s ease; box-shadow: 0 0 16px rgba(56,189,248,0.8); }
+.loading-sub { font-family: "Courier New", monospace; color: #475569; font-size: 13px; margin-top: 12px; }
+
+/* ============================================================================
+   User settings
+   ============================================================================ */
+.profile-avatar {
+  width: 72px; height: 72px; border-radius: 50%; background: var(--accent);
+  color: #fff; font-size: 30px; font-weight: 800; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 24px var(--accent-glow);
+}
+.field-label { display: block; font-size: 12px; color: var(--text-dim); margin: 10px 0 4px; }
+.field-input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 9px 12px; border-radius: 6px; font-size: 13px; outline: none; transition: all 0.2s;
+}
+.field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.avatar-color { width: 40px; height: 40px; border-radius: 50%; border: 2px solid var(--border); cursor: pointer; transition: transform 0.15s; }
+.avatar-color:hover { transform: scale(1.15); }
+.inst-check { margin-top: 12px; font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+
+/* ============================================================================
+   File manager (Рабочая Самка)
+   ============================================================================ */
+.fm-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; margin-bottom: 10px;
+}
+.fm-tb-label { font-size: 11px; color: var(--text-dim); }
+.fm-tb-sep { width: 1px; height: 18px; background: var(--border); }
+.fm-view.active { border-color: var(--accent); color: var(--accent); }
+.fm-select { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 6px; font-size: 12px; outline: none; }
+.fm-hidden { font-size: 12px; color: var(--text); display: flex; align-items: center; gap: 5px; cursor: pointer; }
+.fm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.fm-table thead th { color: var(--text-dim); border-bottom: 1px solid var(--border); text-align: left; padding: 6px; }
+.fm-table tbody tr:hover { background: var(--accent-soft); }
+.fm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; padding: 8px; }
+.fm-grid-item { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 6px; border-radius: 8px; cursor: pointer; transition: all 0.15s; }
+.fm-grid-item:hover { background: var(--accent-soft); box-shadow: 0 0 0 1px var(--accent); }
+.fm-grid-icon { color: var(--accent); }
+.fm-grid-name { font-size: 12px; text-align: center; color: var(--text); word-break: break-all; }
+
+/* Window open animation */
+.window { animation: winIn 0.22s ease; }
+@keyframes winIn { from { opacity: 0; transform: scale(0.94) translateY(6px); } to { opacity: 1; transform: none; } }
+.desktop-icon { animation: iconIn 0.3s ease both; }
+@keyframes iconIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }

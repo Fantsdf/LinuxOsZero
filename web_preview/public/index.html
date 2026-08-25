@@ -9,8 +9,30 @@
 </head>
 <body data-theme="dark">
 
+  <!-- ============ GRUB BOOT MENU ============ -->
+  <div id="grub-screen">
+    <div class="grub-topbar">GNU GRUB &nbsp;version 2.06</div>
+    <div class="grub-frame">
+      <div class="grub-inner">
+        <div class="grub-title">LinuxOSZero — меню загрузки</div>
+        <div id="grub-menu" class="grub-menu"></div>
+        <div class="grub-footer">Используйте <b>↑</b> и <b>↓</b> для выбора, <b>Enter</b> для запуска, <b>e</b> — редактировать, <b>c</b> — командная строка</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ LOADING SCREEN ============ -->
+  <div id="loading-screen" class="hidden">
+    <div class="loading-inner">
+      <img src="img/logo.png" class="loading-logo" alt="">
+      <div class="loading-text" id="loading-text">Loading LinuxOSZero…</div>
+      <div class="loading-bar"><div id="loading-fill" class="loading-fill"></div></div>
+      <div class="loading-sub" id="loading-sub">Загрузка ядра и драйверов…</div>
+    </div>
+  </div>
+
   <!-- ============ BOOT SCREEN ============ -->
-  <div id="boot-screen">
+  <div id="boot-screen" class="hidden">
     <div class="boot-inner">
       <div class="boot-logo">
         <img src="img/logo.png" class="boot-logo-img" alt="LinuxOSZero">

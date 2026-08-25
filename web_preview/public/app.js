@@ -64,13 +64,26 @@ function applyTheme(theme) {
 }
 
 // ---------------------------------------------------------------------------
+// Video card (GPU) helper — detected adapter shown across the system
+// ---------------------------------------------------------------------------
+function gpuName() {
+  switch (hypervisor) {
+    case 'VirtualBox': return 'Oracle VirtualBox VMSVGA (0x80EE:0xBEEF) — 128 MB';
+    case 'QEMU':       return 'QEMU std VGA / Bochs-VBE (0x1234:0x1111) — 128 MB';
+    case 'VMware':     return 'VMware SVGA II (0x15AD:0x0405) — 128 MB';
+    default:           return 'Generic VBE Framebuffer — 128 MB';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Application registry (single source of truth for icons & launchers)
 // ---------------------------------------------------------------------------
 const APPS = [
   { id: 'installer',  name: 'Установка ОС',    icon: 'installer',   launch: 'installer' },
   { id: 'terminal',   name: 'Терминал',        icon: 'terminal',    launch: 'terminal' },
-  { id: 'filemanager',name: 'Файлы',           icon: 'filemanager', launch: 'filemanager' },
+  { id: 'filemanager',name: 'Рабочая Самка',   icon: 'filemanager', launch: 'filemanager' },
   { id: 'control',    name: 'Параметры',       icon: 'settings',    launch: 'control' },
+  { id: 'user',       name: 'Пользователь',    icon: 'info',        launch: 'user' },
   { id: 'analytics',  name: 'Монитор системы', icon: 'analytics',   launch: 'analytics' },
   { id: 'editor',     name: 'Редактор',        icon: 'editor',      launch: 'editor' },
   { id: 'fetch',      name: 'О системе',       icon: 'info',        launch: 'fetch' },
@@ -83,6 +96,7 @@ function openApp(appName) {
     case 'terminal': createTerminalWindow(); break;
     case 'filemanager': createFileManagerWindow(); break;
     case 'control': createControlPanelWindow(); break;
+    case 'user': createUserSettingsWindow(); break;
     case 'analytics': createAnalyticsWindow(); break;
     case 'editor': createEditorWindow(); break;
     case 'fetch': createFetchWindow(); break;
@@ -125,14 +139,78 @@ if (startSearch) startSearch.addEventListener('input', (e) => {
 document.getElementById('power-btn').addEventListener('click', logout);
 
 // ---------------------------------------------------------------------------
-// Boot sequence
+// GRUB boot menu
+// ---------------------------------------------------------------------------
+const grubScreen = document.getElementById('grub-screen');
+const loadingScreen = document.getElementById('loading-screen');
+const loadingFill = document.getElementById('loading-fill');
+const loadingText = document.getElementById('loading-text');
+const loadingSub = document.getElementById('loading-sub');
+
+const GRUB_ITEMS = [
+  { name: 'Запустить LinuxOSZero (графический режим)', mode: 'live' },
+  { name: 'Установить LinuxOSZero (графический установщик)', mode: 'install' },
+  { name: 'LinuxOSZero — безопасная графика (VESA 1024x768)', mode: 'safe' },
+  { name: 'LinuxOSZero — консоль восстановления', mode: 'rescue' },
+  { name: 'Перезагрузка', mode: 'reboot' },
+  { name: 'Выключение', mode: 'poweroff' }
+];
+let grubIndex = 0;
+let bootMode = 'live';
+
+function initGrub() {
+  const menu = document.getElementById('grub-menu');
+  menu.innerHTML = GRUB_ITEMS.map((it, i) =>
+    `<div class="grub-item ${i === 0 ? 'selected' : ''}" data-i="${i}"><span class="grub-caret">&#9656;</span>${it.name}</div>`
+  ).join('');
+  menu.querySelectorAll('.grub-item').forEach(el => el.addEventListener('click', () => {
+    grubIndex = +el.dataset.i; selectGrubItem(grubIndex); grubBoot(GRUB_ITEMS[grubIndex].mode);
+  }));
+  document.addEventListener('keydown', (e) => {
+    if (grubScreen && !grubScreen.classList.contains('hidden')) {
+      if (e.key === 'ArrowDown' || e.key === 'j') { grubIndex = (grubIndex + 1) % GRUB_ITEMS.length; selectGrubItem(grubIndex); }
+      else if (e.key === 'ArrowUp' || e.key === 'k') { grubIndex = (grubIndex - 1 + GRUB_ITEMS.length) % GRUB_ITEMS.length; selectGrubItem(grubIndex); }
+      else if (e.key === 'Enter') grubBoot(GRUB_ITEMS[grubIndex].mode);
+    }
+  });
+}
+function selectGrubItem(i) {
+  document.querySelectorAll('.grub-item').forEach((el, idx) => el.classList.toggle('selected', idx === i));
+}
+function grubBoot(mode) {
+  bootMode = mode;
+  grubScreen.classList.add('hidden');
+  loadingScreen.classList.remove('hidden');
+  let p = 0;
+  const msgs = [
+    'Загрузка ядра 6.1.0-zero…',
+    'Инициализация драйверов дисплея…',
+    'Запуск служб и драйверов…',
+    'Подготовка рабочего стола…'
+  ];
+  const timer = setInterval(() => {
+    p += 8;
+    loadingFill.style.width = Math.min(p, 100) + '%';
+    loadingText.textContent = 'Loading LinuxOSZero… ' + Math.min(p, 100) + '%';
+    loadingSub.textContent = msgs[Math.floor(p / 25) % msgs.length];
+    if (p >= 100) {
+      clearInterval(timer);
+      loadingScreen.classList.add('hidden');
+      setTimeout(bootSequence, 250);
+    }
+  }, 60);
+}
+
+// ---------------------------------------------------------------------------
+// Kernel boot log
 // ---------------------------------------------------------------------------
 const BOOT_LINES = [
-  { text: 'BIOS: запуск загрузчика LinuxOSZero', cls: 'ok' },
+  { text: 'BIOS: запуск загрузчика GRUB2 (LinuxOSZero)', cls: 'ok' },
   { text: 'Детектирование гипервизора (QEMU/VirtualBox/VMware)…', cls: 'ok' },
   { text: 'PCI: сканирование шин … найдены устройства', cls: 'ok' },
+  { text: 'Видеокарта: инициализирована ' + (() => (localStorage.getItem('zero-hv') === 'VirtualBox' ? 'VMSVGA (0x80EE:0xBEEF)' : 'std VGA / Bochs-VBE'))() + '', cls: 'ok' },
   { text: 'Загрузка ядра 6.1.0-zero-x86_64 (long mode)', cls: '' },
-  { text: 'Драйвер дисплея: VGA / VMSVGA (32-bpp) инициализирован', cls: 'ok' },
+  { text: 'Драйвер дисплея: 32-bpp инициализирован', cls: 'ok' },
   { text: 'Драйвер мыши: бесшовная интеграция', cls: 'ok' },
   { text: 'Монтирование /proc /sys /dev /tmp … готово', cls: 'ok' },
   { text: 'Запуск zero-init (PID 1)', cls: 'ok' },
@@ -142,6 +220,7 @@ const BOOT_LINES = [
 ];
 
 function bootSequence() {
+  bootScreen.classList.remove('hidden');
   const log = document.getElementById('boot-log');
   const pbar = document.getElementById('boot-pbar');
   log.innerHTML = '';
@@ -163,7 +242,7 @@ function bootSequence() {
     }
   }, 110);
 }
-let bootTimer = setTimeout(bootSequence, 0);
+initGrub();
 
 function showLogin() {
   bootScreen.classList.add('boot-done');
@@ -178,8 +257,15 @@ function showLogin() {
   setTimeout(() => document.getElementById('login-pass').focus(), 200);
 }
 document.addEventListener('keydown', (e) => {
-  if (!bootScreen.classList.contains('boot-done')) { clearTimeout(bootTimer); showLogin(); }
-}, { once: true });
+  // Space/Escape anywhere during startup skips straight to login
+  if ((e.code === 'Space' || e.code === 'Escape')) {
+    if (!loginScreen.classList.contains('hidden')) return;
+    grubScreen.classList.add('hidden');
+    loadingScreen.classList.add('hidden');
+    bootScreen.classList.add('boot-done');
+    showLogin();
+  }
+});
 
 document.getElementById('login-theme').addEventListener('change', (e) => applyTheme(e.target.value));
 document.getElementById('login-btn').addEventListener('click', () => {
@@ -204,8 +290,13 @@ function logout() {
 }
 function showDesktop() {
   osContainer.classList.remove('hidden');
-  openApp('welcome');
-  openApp('terminal');
+  if (bootMode === 'install') {
+    openApp('installer');
+    openApp('welcome');
+  } else {
+    openApp('welcome');
+    openApp('terminal');
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -230,7 +321,7 @@ function showTextSession() {
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       const v = input.value;
-      out.insertAdjacentHTML('beforeend', `<span class="term-prompt">user@linuxoszero:~$</span> ` + v.replace(/</g, '&lt;') + '\n');
+      out.insertAdjacentHTML('beforeend', `<span class="term-prompt">${getUsername()}@linuxoszero:~$</span> ` + v.replace(/</g, '&lt;') + '\n');
       runTermCommand(v, out);
       out.scrollTop = out.scrollHeight;
       input.value = '';
@@ -394,7 +485,7 @@ document.getElementById('start-btn').addEventListener('click', toggleStartMenu);
 function createTerminalWindow() {
   const contentId = 'term-content-' + nextWinId;
   const html = `<div class="term-window"><div class="term-output" id="${contentId}"></div>
-    <div class="term-input-row"><span class="term-prompt">user@linuxoszero:~$</span>
+    <div class="term-input-row"><span class="term-prompt">${getUsername()}@linuxoszero:~$</span>
     <input class="term-input" id="term-input-${contentId}" autocomplete="off" spellcheck="false" placeholder="введите 'help'"></div></div>`;
   createWindow('Терминал', 'terminal', 660, 400, html, { contentId });
   const outEl = document.getElementById(contentId);
@@ -404,7 +495,7 @@ function createTerminalWindow() {
   inputEl.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       const val = inputEl.value;
-      outEl.insertAdjacentHTML('beforeend', '<div><span class="term-prompt">user@linuxoszero:~$</span> ' + val.replace(/</g, '&lt;') + '</div>');
+      outEl.insertAdjacentHTML('beforeend', '<div><span class="term-prompt">' + getUsername() + '@linuxoszero:~$</span> ' + val.replace(/</g, '&lt;') + '</div>');
       runTermCommand(val, outEl); outEl.scrollTop = outEl.scrollHeight; inputEl.value = '';
     }
   });
@@ -512,6 +603,11 @@ function createControlPanelWindow() {
         <p id="res-status" style="color:var(--accent);margin-top:10px;font-size:12px;">Текущее: 1920x1080</p>
       </div>
       <div class="card">
+        <strong>Видеокарта (GPU):</strong>
+        <p style="color:var(--text);margin-top:8px;">${svgIcon('chip', 15)} ${gpuName()}</p>
+        <p style="color:var(--success);margin-top:6px;">✔ Аппаратное ускорение активное</p>
+      </div>
+      <div class="card">
         <strong>Гостевые драйверы:</strong>
         <div class="toggle-row"><span>Бесшовная мышь</span><label class="switch"><input type="checkbox" checked id="tg-mouse"><span class="slider"></span></label></div>
         <div class="toggle-row"><span>Авто-изменение размера</span><label class="switch"><input type="checkbox" checked id="tg-resize"><span class="slider"></span></label></div>
@@ -546,7 +642,68 @@ function createControlPanelWindow() {
 }
 
 // ---------------------------------------------------------------------------
-// App: File manager
+// App: User settings (профиль пользователя)
+// ---------------------------------------------------------------------------
+function getUsername() { return localStorage.getItem('zero-user') || 'user'; }
+function getUserInitials() {
+  const u = getUsername();
+  return (u[0] || 'U').toUpperCase();
+}
+function createUserSettingsWindow() {
+  const html = `
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <h3 style="color:var(--accent);">Настройка пользователя</h3>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div class="profile-avatar" id="user-avatar">${getUserInitials()}</div>
+        <div>
+          <div style="font-size:16px;font-weight:700;color:var(--text);" id="user-name">${getUsername()}</div>
+          <div style="font-size:12px;color:var(--text-dim);">member@linuxoszero</div>
+        </div>
+      </div>
+      <div class="card">
+        <label class="field-label">Имя пользователя</label>
+        <input type="text" class="field-input" id="set-username" value="${getUsername()}" autocomplete="off">
+        <label class="field-label">Полное имя</label>
+        <input type="text" class="field-input" id="set-fullname" value="Пользователь LinuxOSZero" autocomplete="off">
+      </div>
+      <div class="card">
+        <label class="field-label">Новый пароль</label>
+        <input type="password" class="field-input" id="set-pass" value="" placeholder="Оставить прежним" autocomplete="new-password">
+        <p style="color:var(--text-dim);font-size:11px;margin-top:6px;">Пароль используется для входа в сеанс.</p>
+      </div>
+      <div class="card">
+        <strong>Аватар (инициалы)</strong>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;">
+          ${['#0ea5e9','#22c55e','#f97316','#8b5cf6'].map(c =>
+            `<button class="avatar-color" data-c="${c}" style="background:${c};" onclick="setAvatarColor('${c}')"></button>`).join('')}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn-primary" onclick="saveUserSettings()">Сохранить</button>
+        <button class="btn-secondary" onclick="resetUserSettings()">Сбросить</button>
+      </div>
+    </div>`;
+  createWindow('Пользователь — ${getUsername()}', 'info', 480, 520, html);
+  const av = document.getElementById('user-avatar');
+  if (av) av.style.background = localStorage.getItem('zero-avatar') || '#0ea5e9';
+}
+function setAvatarColor(c) { localStorage.setItem('zero-avatar', c); const av = document.getElementById('user-avatar'); if (av) av.style.background = c; }
+function saveUserSettings() {
+  const u = document.getElementById('set-username').value.trim() || 'user';
+  localStorage.setItem('zero-user', u);
+  const pass = document.getElementById('set-pass').value;
+  if (pass) localStorage.setItem('zero-pass', pass);
+  const av = document.getElementById('user-avatar'); if (av) av.textContent = u[0].toUpperCase();
+  const name = document.getElementById('user-name'); if (name) name.textContent = u;
+  alert('Настройки пользователя сохранены: ' + u);
+}
+function resetUserSettings() {
+  localStorage.removeItem('zero-user'); localStorage.removeItem('zero-pass'); localStorage.removeItem('zero-avatar');
+  location.reload();
+}
+
+// ---------------------------------------------------------------------------
+// App: File manager (Рабочая Самка)
 // ---------------------------------------------------------------------------
 const fmTree = {
   '/': [
@@ -572,38 +729,107 @@ const fmTree = {
     { n: 'vboxsf', t: 'Общие папки', d: true }
   ]
 };
+const fmPrefs = {
+  view: localStorage.getItem('fm-view') || 'list',
+  sort: localStorage.getItem('fm-sort') || 'name',
+  showHidden: localStorage.getItem('fm-hidden') === '1'
+};
 function createFileManagerWindow() {
   const contentId = 'fm-content-' + nextWinId;
   const html = `<div style="display:flex;flex-direction:column;height:100%;">
     <div style="display:flex;gap:8px;margin-bottom:12px;">
       <button class="btn-secondary fm-back">&#8592;</button>
       <input type="text" id="fm-loc" value="Расположение: /" style="flex:1;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:4px 8px;border-radius:6px;" readonly>
+      <button class="btn-secondary fm-settings" title="Настройки Рабочей Самки" id="fm-settings-btn">${svgIcon('settings', 15)}</button>
     </div>
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead><tr style="color:var(--text-dim);border-bottom:1px solid var(--border);text-align:left;"><th style="padding:6px;">Имя</th><th>Тип</th><th>Размер</th></tr></thead>
-      <tbody id="${contentId}"></tbody></table></div>`;
-  createWindow('Файловый менеджер', 'filemanager', 600, 400, html, { contentId });
+    <div class="fm-toolbar" id="fm-toolbar">
+      <span class="fm-tb-label">Вид:</span>
+      <button class="btn-secondary fm-view" data-view="list">Список</button>
+      <button class="btn-secondary fm-view" data-view="grid">Сетка</button>
+      <span class="fm-tb-sep"></span>
+      <span class="fm-tb-label">Сортировка:</span>
+      <select class="fm-select" id="fm-sort">
+        <option value="name">Имя</option>
+        <option value="type">Тип</option>
+        <option value="size">Размер</option>
+      </select>
+      <label class="fm-hidden"><input type="checkbox" id="fm-showhidden"> Скрытые</label>
+    </div>
+    <div id="fm-body-${contentId}" style="flex:1;overflow:auto;"></div></div>`;
+  createWindow('Рабочая Самка', 'filemanager', 640, 460, html, { contentId });
   let currentPath = '/';
-  const body = document.getElementById(contentId);
+  const body = document.getElementById('fm-body-' + contentId);
+
+  function currentItems(path) {
+    let items = (fmTree[path] || []).slice();
+    if (!fmPrefs.showHidden) items = items.filter(it => !it.n.startsWith('.'));
+    const dirs = items.filter(it => it.d);
+    const files = items.filter(it => !it.d);
+    const sortFn = fmPrefs.sort === 'type' ? (a,b)=>a.t.localeCompare(b.t) : fmPrefs.sort === 'size' ? (a,b)=>(a.s||'').localeCompare(b.s||'') : (a,b)=>a.n.localeCompare(b.n);
+    dirs.sort(sortFn); files.sort(sortFn);
+    return dirs.concat(files);
+  }
+
   function render(path) {
     const loc = document.getElementById('fm-loc'); loc.value = 'Расположение: ' + path;
-    const items = fmTree[path] || []; body.innerHTML = '';
-    if (path !== '/') {
-      const up = document.createElement('tr');
-      up.innerHTML = `<td style="padding:6px;color:var(--warn);cursor:pointer;">${svgIcon('filemanager',14)} ..</td><td>Вверх</td><td>DIR</td>`;
-      up.onclick = () => { const parts = path.split('/').filter(Boolean); parts.pop(); currentPath = '/' + parts.join('/'); render(currentPath); };
-      body.appendChild(up);
+    const items = currentItems(path); body.innerHTML = '';
+
+    // Toolbar state
+    const sortSel = document.getElementById('fm-sort'); if (sortSel) sortSel.value = fmPrefs.sort;
+    const hiddenChk = document.getElementById('fm-showhidden'); if (hiddenChk) hiddenChk.checked = fmPrefs.showHidden;
+    document.querySelectorAll('.fm-view').forEach(v => v.classList.toggle('active', v.dataset.view === fmPrefs.view));
+
+    if (fmPrefs.view === 'grid') {
+      const grid = document.createElement('div'); grid.className = 'fm-grid';
+      if (path !== '/') {
+        grid.appendChild(fmGridItem('..', 'filemanager', true, () => { const parts = path.split('/').filter(Boolean); parts.pop(); currentPath = '/' + parts.join('/'); render(currentPath); }));
+      }
+      items.forEach(it => {
+        grid.appendChild(fmGridItem(it.n, it.d ? 'filemanager' : (it.n === 'wallpaper.png' ? 'image' : 'editor'), it.d, () => {
+          if (it.d) { const np = (path === '/' ? '' : path) + '/' + it.n; if (fmTree[np]) { currentPath = np; render(currentPath); } }
+          else if (it.n === 'zero-release') createEditorWindow('LinuxOSZero Genesis Edition v1.0.0 (x86_64)');
+        }));
+      });
+      body.appendChild(grid);
+    } else {
+      const table = document.createElement('table'); table.className = 'fm-table';
+      table.innerHTML = `<thead><tr><th>Имя</th><th>Тип</th><th>Размер</th></tr></thead>`;
+      const tbody = document.createElement('tbody');
+      if (path !== '/') {
+        const up = document.createElement('tr');
+        up.innerHTML = `<td style="padding:6px;color:var(--warn);cursor:pointer;">${svgIcon('filemanager',14)} ..</td><td>Вверх</td><td>DIR</td>`;
+        up.onclick = () => { const parts = path.split('/').filter(Boolean); parts.pop(); currentPath = '/' + parts.join('/'); render(currentPath); };
+        tbody.appendChild(up);
+      }
+      items.forEach(it => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td style="padding:6px;color:${it.d ? 'var(--accent)' : 'var(--text)'};cursor:pointer;">${svgIcon(it.d ? 'filemanager' : (it.n === 'wallpaper.png' ? 'image' : 'editor'), 14)} ${it.n}</td><td>${it.t}</td><td>${it.d ? 'DIR' : (it.s || '—')}</td>`;
+        tr.addEventListener('dblclick', () => {
+          if (it.d) { const np = (path === '/' ? '' : path) + '/' + it.n; if (fmTree[np]) { currentPath = np; render(currentPath); } }
+          else if (it.n === 'zero-release') createEditorWindow('LinuxOSZero Genesis Edition v1.0.0 (x86_64)');
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      body.appendChild(table);
     }
-    items.forEach(it => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td style="padding:6px;color:${it.d ? 'var(--accent)' : 'var(--text)'};cursor:pointer;">${svgIcon(it.d ? 'filemanager' : (it.n === 'wallpaper.png' ? 'image' : 'editor'), 14)} ${it.n}</td><td>${it.t}</td><td>${it.d ? 'DIR' : (it.s || '—')}</td>`;
-      if (it.d) tr.addEventListener('dblclick', () => { const np = (path === '/' ? '' : path) + '/' + it.n; if (fmTree[np]) { currentPath = np; render(currentPath); } });
-      else if (it.n === 'zero-release') tr.addEventListener('dblclick', () => createEditorWindow('LinuxOSZero Genesis Edition v1.0.0 (x86_64)'));
-      else if (it.n === 'wallpaper.png') tr.addEventListener('dblclick', () => { const w = window.open('', '_blank'); if (w) w.document.write('<img src="img/wallpaper.jpg" style="width:100%">'); });
-      body.appendChild(tr);
-    });
   }
+
+  // Toolbar events
+  const sortSel = document.getElementById('fm-sort');
+  if (sortSel) sortSel.addEventListener('change', () => { fmPrefs.sort = sortSel.value; localStorage.setItem('fm-sort', fmPrefs.sort); render(currentPath); });
+  const hiddenChk = document.getElementById('fm-showhidden');
+  if (hiddenChk) hiddenChk.addEventListener('change', () => { fmPrefs.showHidden = hiddenChk.checked; localStorage.setItem('fm-hidden', hiddenChk.checked ? '1' : '0'); render(currentPath); });
+  document.querySelectorAll('.fm-view').forEach(v => v.addEventListener('click', () => { fmPrefs.view = v.dataset.view; localStorage.setItem('fm-view', fmPrefs.view); render(currentPath); }));
+
   render(currentPath);
+}
+function fmGridItem(name, icon, isDir, onclick) {
+  const el = document.createElement('div');
+  el.className = 'fm-grid-item';
+  el.innerHTML = `<div class="fm-grid-icon">${svgIcon(icon, 34)}</div><div class="fm-grid-name">${name}</div>`;
+  el.addEventListener('dblclick', onclick);
+  return el;
 }
 
 // ---------------------------------------------------------------------------
@@ -645,8 +871,9 @@ function createFetchWindow() {
         <div style="color:var(--text-dim);">--------------------------------</div>
         <div><strong>ОС</strong>         : LinuxOSZero 1.0.0 (Genesis)</div>
         <div><strong>Гипервизор</strong> : ${HV_META[hypervisor].label}</div>
+        <div><strong>Видеокарта</strong>: <span style="color:var(--accent);">${gpuName()}</span></div>
         <div><strong>Ядро</strong>       : 6.1.0-zero-x86_64</div>
-        <div><strong>Разрешение</strong> : 1920x1080 (${hypervisor === 'QEMU' ? 'std VGA' : 'VMSVGA'})</div>
+        <div><strong>Разрешение</strong> : 1920x1080 (32-bpp)</div>
         <div><strong>WM</strong>         : ZeroWM (двойная буферизация)</div>
         <div><strong>Пакетов</strong>    : 45 (zpkg)</div>
         <div><strong>Память</strong>     : 1.2 GB / 4 GB</div>
@@ -676,7 +903,16 @@ function createWelcomeWindow() {
 // App: Installer
 // ---------------------------------------------------------------------------
 let currentStep = 1;
-function createInstallerWindow() { currentStep = 1; createWindow('Установка LinuxOSZero v1.0', 'installer', 660, 460, getInstallerStepHtml(1), { contentId: 'installer-content' }); }
+function createInstallerWindow() { currentStep = 1; createWindow('Установка LinuxOSZero v1.0', 'installer', 680, 500, getInstallerStepHtml(1), { contentId: 'installer-content' }); }
+
+function applyInstallerUser() {
+  const u = (document.getElementById('inst-username') && document.getElementById('inst-username').value.trim()) || 'user';
+  const host = (document.getElementById('inst-hostname') && document.getElementById('inst-hostname').value.trim()) || 'linuxoszero';
+  const pass = document.getElementById('inst-password') ? document.getElementById('inst-password').value : '';
+  localStorage.setItem('zero-user', u);
+  if (pass) localStorage.setItem('zero-pass', pass);
+  localStorage.setItem('zero-host', host);
+}
 function getInstallerStepHtml(step) {
   let stepContent = '';
   if (step === 1) stepContent = `
@@ -697,13 +933,19 @@ function getInstallerStepHtml(step) {
       <div class="installer-actions"><button class="btn-secondary" onclick="setInstallerStep(1)">&lt; Назад</button><button class="btn-primary" onclick="setInstallerStep(3)">Далее &gt;</button></div>`;
   else if (step === 3) stepContent = `
       <h3>Пользователь и система</h3>
-      <p style="color:var(--text-dim);margin-top:6px;">Настройте пользователя и системные данные.</p>
+      <p style="color:var(--text-dim);margin-top:6px;">Создайте пользователя и настройте систему.</p>
       <div class="card">
-        <p><strong>Имя хоста :</strong> linuxoszero</p>
-        <p><strong>Пользователь :</strong> user</p>
-        <p><strong>Пароль :</strong> zero (доступ sudo)</p>
-        <p><strong>Часовой пояс :</strong> UTC (авто-синхронизация)</p></div>
-      <div class="installer-actions"><button class="btn-secondary" onclick="setInstallerStep(2)">&lt; Назад</button><button class="btn-primary" onclick="setInstallerStep(4); startInstallSim();">Установить &gt;&gt;</button></div>`;
+        <label class="field-label">Имя компьютера (hostname)</label>
+        <input type="text" class="field-input" id="inst-hostname" value="linuxoszero" autocomplete="off">
+        <label class="field-label">Имя пользователя</label>
+        <input type="text" class="field-input" id="inst-username" value="user" autocomplete="off">
+        <label class="field-label">Полное имя</label>
+        <input type="text" class="field-input" id="inst-fullname" value="Пользователь LinuxOSZero" autocomplete="off">
+        <label class="field-label">Пароль (sudo)</label>
+        <input type="password" class="field-input" id="inst-password" value="zero" autocomplete="new-password">
+        <div class="inst-check"><input type="checkbox" id="inst-sudo" checked> Включить доступ sudo для этого пользователя</div>
+      </div>
+      <div class="installer-actions"><button class="btn-secondary" onclick="setInstallerStep(2)">&lt; Назад</button><button class="btn-primary" onclick="applyInstallerUser(); setInstallerStep(4); startInstallSim();">Установить &gt;&gt;</button></div>`;
   else if (step === 4) stepContent = `
       <h3>Установка LinuxOSZero...</h3>
       <p style="color:var(--text-dim);margin-top:6px;">Копирование ядра, rootfs и драйверов...</p>
@@ -716,7 +958,8 @@ function getInstallerStepHtml(step) {
         <p>✔ Ядро: LinuxOSZero 6.1 x86_64</p>
         <p>✔ Загрузчик: GRUB2 (MBR/EFI) установлен</p>
         <p>✔ Драйверы ${HV_META[hypervisor].label}: настроены</p>
-        <p>✔ Пользователь: user (пароль: zero)</p></div>
+        <p>✔ Видеокарта: ${gpuName()}</p>
+        <p>✔ Пользователь: ${getUsername()}</p></div>
       <div class="installer-actions"><button class="btn-primary" style="background:var(--success);" onclick="location.reload()">Перезагрузить</button></div>`;
   return `<div class="installer-box">
     <div class="installer-sidebar">
