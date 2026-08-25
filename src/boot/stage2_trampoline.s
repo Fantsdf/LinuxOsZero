@@ -3,16 +3,25 @@
  *
  * Loaded by boot.s at physical 0x10000 (real mode, CS=0x1000, IP=0).
  *
+ * This version uses 2 MiB pages (PSE) instead of 1 GiB pages. 1 GiB pages
+ * (PDPTE with PS=1) are NOT supported by every VirtualBox guest CPUID
+ * (e.g. when the VM is configured without the Page1GB feature), which caused
+ * a page-fault -> double fault -> triple fault ("Guru Meditation") right at
+ * the far jump into long mode, i.e. a black screen. 2 MiB pages are supported
+ * on every x86-64 CPU, so this boots reliably in VirtualBox/QEMU/bare metal.
+ *
+ * Page table layout (physical, at 0x9000):
+ *   PML4 @ 0x9000   [0] -> PDPT @ 0x9100
+ *   PDPT @ 0x9100   [0..3] -> PD0..PD3
+ *   PD0  @ 0x9200   : 512 x 2 MiB pages = 0x00000000 - 0x3FFFFFFF
+ *   PD1  @ 0x9400   : maps 0x40000000 - 0x7FFFFFFF
+ *   PD2  @ 0x9600   : maps 0x80000000 - 0xBFFFFFFF
+ *   PD3  @ 0x9800   : maps 0xC0000000 - 0xFFFFFFFF   (framebuffer 0xE0000000)
+ *
  * Because the whole kernel is linked at 0x10000, the 16-bit portion reaches
  * its own data through DS=0x1000 (base 0x10000). All displacement arithmetic
  * uses (label - _start) which fits in 16 bits, and far jumps use absolute
- * physical addresses (0x10000 + offset) so EIP is correct once in flat mode.
- *
- * Steps:
- *   1. Build 4 GB identity page tables (1 GB pages) at 0x9000
- *   2. Load a minimal GDT (hand-encoded LGDT with 16-bit displacement)
- *   3. Protected mode -> PAE + EFER.LME + Paging -> long mode
- *   4. call stage2_entry (kernel C entry)
+ * physical addresses (0x10000 + offset).
  */
 
 .intel_syntax noprefix
@@ -39,8 +48,7 @@ _start:
     or eax, 1
     mov cr0, eax
 
-    /* Far jump to 32-bit code: EIP = 0x10000 + (pm32 - _start).
-       Encoded as EA imm32 seg16 with a 32-bit operand override. */
+    /* Far jump to 32-bit code: EIP = 0x10000 + (pm32 - _start). */
     .byte 0x66
     .byte 0xEA
     .long 0x10000 + (pm32 - _start)
@@ -56,22 +64,34 @@ pm32:
     mov fs, ax
     mov gs, ax
 
-    /* ---- Build 4 GB identity page tables at 0x9000 (flat addressing) ---- */
+    /* ---- Build 2 MiB-page identity tables at 0x9000 ----
+       Zero PML4 + PDPT + 4 PDs = 24 KB = 0x9000..0xF000 (6144 dwords). */
     mov edi, 0x9000
     xor eax, eax
-    mov ecx, 0x800          /* 2048 dwords = 8 KB */
+    mov ecx, 0x1800
     cld
     rep stosd
 
     /* PML4[0] -> PDPT at 0x9100 (present, rw) */
     mov dword ptr [0x9000], 0x00009103
 
-    /* PDPT[0..3] = 1 GB pages (PS=1), identity-map 0..4 GB.
-       The framebuffer at 0xE0000000 is thus reachable. */
-    mov dword ptr [0x9100], 0x00000083
-    mov dword ptr [0x9108], 0x40000083
-    mov dword ptr [0x9110], 0x80000083
-    mov dword ptr [0x9118], 0xC0000083
+    /* PDPT[0..3] -> PD0..PD3 (present, rw) */
+    mov dword ptr [0x9100], 0x00009203
+    mov dword ptr [0x9108], 0x00009403
+    mov dword ptr [0x9110], 0x00009603
+    mov dword ptr [0x9118], 0x00009803
+
+    /* Fill all four PDs (2048 entries) with 2 MiB pages (PS=1, present, rw).
+       Entry value = (index << 21) | 0x83. Covers the full 4 GiB so the
+       framebuffer at 0xE0000000 is identity-mapped. */
+    mov edi, 0x9200          /* start of PD0 */
+    mov eax, 0x00000083      /* first 2 MiB page (0x00000000) */
+    mov ecx, 2048
+.fill_pd:
+    mov dword ptr [edi], eax
+    add eax, 0x200000        /* advance 2 MiB */
+    add edi, 4
+    loop .fill_pd
 
     /* ---- Enable PAE ---- */
     mov eax, cr4
@@ -93,7 +113,7 @@ pm32:
     or eax, 0x80000001
     mov cr0, eax
 
-    /* Far jump to 64-bit code: EIP = 0x10000 + (pm64 - _start). */
+    /* Far jump to 64-bit code: EIP = 0x10000 + (pm64 - _start), CS = 0x18. */
     .byte 0xEA
     .long 0x10000 + (pm64 - _start)
     .word 0x18
