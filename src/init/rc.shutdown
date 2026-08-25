@@ -1,0 +1,20 @@
+#!/bin/sh
+# LinuxOSZero Shutdown Script
+# /etc/init.d/rc.shutdown
+
+echo "[+] LinuxOSZero Shutdown sequence initiated..."
+
+# Stop userland services
+pkill -TERM zero-desktop 2>/dev/null
+pkill -TERM zero-guest-agent 2>/dev/null
+sleep 1
+
+# Sync disks
+echo "[+] Flushing disk caches..."
+sync
+
+# Unmount all filesystems
+echo "[+] Unmounting non-virtual filesystems..."
+umount -a -r 2>/dev/null
+
+echo "[+] Ready for power-off/reboot."

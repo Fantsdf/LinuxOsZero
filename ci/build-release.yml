@@ -1,0 +1,73 @@
+name: Build LinuxOSZero ISO & Release
+
+on:
+  push:
+    branches:
+      - main
+      - arena/**
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-iso:
+    name: Build Bootable ISO & Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc make binutils busybox-static python3 xz-utils gzip cpio
+
+      - name: Compile OS & Build Hybrid ISO
+        run: |
+          make all
+
+      - name: Verify ISO Image & Checksum
+        run: |
+          ls -lh dist/LinuxOSZero-v1.0.0-x86_64.iso
+          cat dist/SHA256SUMS
+
+      - name: Upload ISO Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinuxOSZero-v1.0.0-x86_64-iso
+          path: |
+            dist/LinuxOSZero-v1.0.0-x86_64.iso
+            dist/SHA256SUMS
+
+      - name: Create GitHub Release (on tag or dispatch)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/LinuxOSZero-v1.0.0-x86_64.iso
+            dist/SHA256SUMS
+          name: LinuxOSZero Genesis Edition v${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          body: |
+            # LinuxOSZero v${{ github.ref_name }} - Genesis Edition
+
+            Official release of **LinuxOSZero** — a minimalist, modular, high-performance x86_64 Linux distribution with full VirtualBox hardware acceleration and graphical desktop environment.
+
+            ### Features:
+            - **Kernel**: 64-bit Long Mode Kernel with ACPI, PCI, and VBE framebuffer
+            - **VirtualBox Drivers**: VMMDev, VBoxVideo (VMSVGA/VBoxSVGA), VBoxMouse absolute pointer integration, VBoxSF shared folders
+            - **Desktop**: ZeroDesktop & ZeroWM double-buffered window manager with dark cyber theme and Russian/Latin font rendering
+            - **Installer**: ZeroInstaller (Graphical & TUI setup wizard with automatic ext4 partitioning)
+            - **Package Manager**: `zpkg` for package search, install, and metadata management
+            - **Tools**: ZeroTerminal, ZeroControlPanel, ZeroFileManager, ZeroEditor, ZeroFetch
+
+            ### Download & Verification:
+            - ISO: `LinuxOSZero-v1.0.0-x86_64.iso`
+            - Checksums: `SHA256SUMS`

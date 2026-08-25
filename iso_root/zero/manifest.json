@@ -1,0 +1,24 @@
+{
+  "os": "LinuxOSZero",
+  "version": "1.0.0",
+  "codename": "Genesis",
+  "arch": "x86_64",
+  "build_date": "2026-08-24",
+  "kernel": "6.1.0-zero-x86_64",
+  "hypervisor_support": [
+    "Oracle VM VirtualBox",
+    "QEMU / KVM",
+    "VMware Workstation",
+    "Bare Metal x86_64"
+  ],
+  "default_packages": [
+    "base-system",
+    "zero-wm",
+    "vbox-guest-additions",
+    "zero-installer",
+    "zero-terminal",
+    "zero-editor",
+    "zero-filemanager",
+    "zpkg"
+  ]
+}

@@ -1,0 +1,51 @@
+#!/bin/sh
+# LinuxOSZero System Initialization Script
+# /etc/init.d/rc.sysinit
+
+echo "=================================================="
+echo "    LinuxOSZero System Initialization (rc.sysinit)"
+echo "=================================================="
+
+# 1. Mount virtual filesystems if not already mounted
+mountpoint -q /proc || mount -t proc proc /proc
+mountpoint -q /sys || mount -t sysfs sysfs /sys
+mountpoint -q /dev || mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts /dev/shm /run /tmp /var/log /var/run
+mountpoint -q /dev/pts || mount -t devpts devpts /dev/pts -o mode=0620,ptmxmode=0666
+mountpoint -q /dev/shm || mount -t tmpfs tmpfs /dev/shm -o mode=1777
+
+# 2. Hardware node discovery via mdev / udev
+echo "[+] Initializing hardware devices (mdev)..."
+if which mdev >/dev/null 2>&1; then
+    mdev -s
+    echo /sbin/mdev > /proc/sys/kernel/hotplug
+fi
+
+# 3. Configure Loopback Network Interface
+echo "[+] Configuring network interfaces..."
+ip link set lo up 2>/dev/null || ifconfig lo 127.0.0.1 up 2>/dev/null
+
+# 4. Check for VirtualBox PCI devices and load drivers
+echo "[+] Probing VirtualBox Guest Additions & Video Drivers..."
+if [ -x /usr/bin/zero-hwprobe ]; then
+    /usr/bin/zero-hwprobe
+fi
+
+# 5. Network auto-configuration (DHCP) on eth0 / enp0s3
+for iface in eth0 enp0s3 enp0s8 eth1; do
+    if [ -d "/sys/class/net/$iface" ]; then
+        echo "[+] Bringing up network interface $iface..."
+        ip link set "$iface" up 2>/dev/null
+        udhcpc -i "$iface" -n -q -b 2>/dev/null &
+        break
+    fi
+done
+
+# 6. Populate /etc/issue and MOTD
+cat << 'EOF' > /etc/issue
+LinuxOSZero v1.0.0 (Genesis) \n \l
+Kernel \r on an \m
+
+EOF
+
+echo "[+] Initialization complete."

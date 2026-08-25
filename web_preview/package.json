@@ -1,0 +1,10 @@
+{
+  "name": "linuxoszero-preview",
+  "version": "1.0.0",
+  "description": "LinuxOSZero Live Graphical Environment & VirtualBox Simulator",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}

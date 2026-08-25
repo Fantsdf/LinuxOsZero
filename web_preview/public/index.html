@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinuxOSZero v1.0.0 - Genesis Desktop Live Preview</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Boot Screen -->
+  <div id="boot-screen">
+    <div class="boot-inner">
+      <div class="boot-logo">
+        <div class="boot-circle"><span class="boot-letter">Z</span></div>
+        <h1 class="boot-title">LinuxOSZero</h1>
+        <p class="boot-sub">Genesis Edition v1.0.0 (x86_64)</p>
+      </div>
+      <div class="boot-log" id="boot-log"></div>
+      <div class="boot-progress"><div id="boot-pbar" class="boot-pbar-fill"></div></div>
+      <div class="boot-hint">Press any key to skip boot</div>
+    </div>
+  </div>
+
+  <div id="os-container" class="hidden">
+    <!-- Desktop Canvas & Background -->
+    <div id="desktop">
+      <!-- Desktop Background Geometry -->
+      <div class="wallpaper-bg">
+        <div class="wallpaper-grid"></div>
+        <div class="wallpaper-emblem">
+          <div class="emblem-circle">
+            <span class="emblem-letter">Z</span>
+          </div>
+          <h1 class="os-brand-title">LinuxOSZero</h1>
+          <p class="os-brand-sub">Genesis Edition v1.0.0 (x86_64)</p>
+          <p class="os-brand-desc">Minimalist • VirtualBox VMSVGA Accelerated • Modular</p>
+        </div>
+      </div>
+
+      <!-- Desktop Icons -->
+      <div id="desktop-icons">
+        <div class="desktop-icon" onclick="openApp('installer')">
+          <div class="icon-img icon-installer">💾</div>
+          <span>Install OS</span>
+        </div>
+        <div class="desktop-icon" onclick="openApp('terminal')">
+          <div class="icon-img icon-term">&gt;_</div>
+          <span>Terminal</span>
+        </div>
+        <div class="desktop-icon" onclick="openApp('filemanager')">
+          <div class="icon-img icon-fm">📁</div>
+          <span>Files</span>
+        </div>
+        <div class="desktop-icon" onclick="openApp('control')">
+          <div class="icon-img icon-settings">⚙️</div>
+          <span>Settings</span>
+        </div>
+        <div class="desktop-icon" onclick="openApp('editor')">
+          <div class="icon-img icon-edit">📝</div>
+          <span>Editor</span>
+        </div>
+        <div class="desktop-icon" onclick="openApp('fetch')">
+          <div class="icon-img icon-info">ℹ️</div>
+          <span>System Info</span>
+        </div>
+      </div>
+
+      <!-- Windows Layer -->
+      <div id="windows-layer"></div>
+    </div>
+
+    <!-- Start Menu Popup -->
+    <div id="start-menu" class="hidden">
+      <div class="start-header">
+        <div class="user-avatar">Z</div>
+        <div>
+          <div class="start-user">user@linuxoszero</div>
+          <div class="start-os">LinuxOSZero v1.0.0</div>
+        </div>
+      </div>
+      <div class="start-items">
+        <div class="start-item" onclick="openApp('installer'); toggleStartMenu()">
+          <span class="start-icon">💾</span>
+          <div>
+            <div class="item-title">Install LinuxOSZero (GUI)</div>
+            <div class="item-sub">Partition disk & install OS</div>
+          </div>
+        </div>
+        <div class="start-item" onclick="openApp('terminal'); toggleStartMenu()">
+          <span class="start-icon">&gt;_</span>
+          <div>
+            <div class="item-title">Zero Terminal</div>
+            <div class="item-sub">Command line environment</div>
+          </div>
+        </div>
+        <div class="start-item" onclick="openApp('filemanager'); toggleStartMenu()">
+          <span class="start-icon">📁</span>
+          <div>
+            <div class="item-title">File Manager</div>
+            <div class="item-sub">Browse rootfs files</div>
+          </div>
+        </div>
+        <div class="start-item" onclick="openApp('control'); toggleStartMenu()">
+          <span class="start-icon">⚙️</span>
+          <div>
+            <div class="item-title">Control Panel & Drivers</div>
+            <div class="item-sub">Display, VBox guest settings</div>
+          </div>
+        </div>
+        <div class="start-item" onclick="openApp('editor'); toggleStartMenu()">
+          <span class="start-icon">📝</span>
+          <div>
+            <div class="item-title">Zero Text Editor</div>
+            <div class="item-sub">Code & text editor</div>
+          </div>
+        </div>
+        <div class="start-item" onclick="openApp('fetch'); toggleStartMenu()">
+          <span class="start-icon">ℹ️</span>
+          <div>
+            <div class="item-title">ZeroFetch System Info</div>
+            <div class="item-sub">Hardware & driver status</div>
+          </div>
+        </div>
+      </div>
+      <div class="start-footer">
+        <span class="vbox-status-tag">● VirtualBox Guest Active</span>
+        <button class="btn-power" onclick="alert('LinuxOSZero Power Menu: Reboot / Shutdown')">⏻</button>
+      </div>
+    </div>
+
+    <!-- Bottom Taskbar -->
+    <div id="taskbar">
+      <button id="start-btn" onclick="toggleStartMenu()">
+        <span class="start-logo">Z</span>
+        <span>ZERO OS</span>
+      </button>
+
+      <div id="task-list"></div>
+
+      <div id="system-tray">
+        <div class="tray-badge">VBox VMSVGA</div>
+        <div class="tray-icon" title="Network Connected">📶</div>
+        <div class="tray-icon" title="Volume: 100%">🔊</div>
+        <div id="clock" class="tray-clock">12:00:00</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# /etc/inittab - LinuxOSZero Init Configuration
+# Format: id:runlevel:action:process
+
+::sysinit:/etc/init.d/rc.sysinit
+::ctrlaltdel:/sbin/reboot
+::shutdown:/etc/init.d/rc.shutdown
+
+# Virtual Consoles
+tty1::respawn:/usr/bin/zero-desktop
+tty2::askfirst:/bin/sh
+tty3::askfirst:/bin/sh

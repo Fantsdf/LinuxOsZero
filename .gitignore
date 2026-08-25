@@ -1,0 +1,11 @@
+# Build artifacts
+build/
+*.o
+*.iso
+!dist/SHA256SUMS
+
+# Node modules
+node_modules/
+.npm/
+__pycache__/
+*.pyc
