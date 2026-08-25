@@ -21,6 +21,8 @@ const ICON_PATHS = {
   chip: `<rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9" y="9" width="6" height="6" rx="1"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/>`,
   search: `<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/>`,
   power: `<path d="M12 3v9M6.3 6.3a8 8 0 1 0 11.4 0"/>`,
+  screen: `<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>`,
+  display: `<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>`,
   // Store / shopping
   store: `<path d="M4 8h16l-1 12H5L4 8z"/><path d="M4 8l1.5-4h13L20 8M9 8V6a3 3 0 0 1 6 0v2"/>`,
   bag: `<rect x="4" y="7" width="16" height="14" rx="2"/><path d="M8 7V6a4 4 0 0 1 8 0v1"/>`,

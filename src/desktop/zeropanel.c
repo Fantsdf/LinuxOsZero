@@ -35,7 +35,7 @@ static const menu_item_t menu_items[] = {
     { "Установить LinuxOSZero",        ICON_INSTALLER,     app_launch_installer },
     { "Терминал (x86_64)",             ICON_TERMINAL,      app_launch_terminal },
     { "Файловый менеджер",             ICON_FILE_MANAGER,  app_launch_file_manager },
-    { "Параметры и драйверы",          ICON_CONTROL_PANEL, app_launch_control_panel },
+    { "Настройка экрана и опции",      ICON_CONTROL_PANEL, app_launch_control_panel },
     { "Текстовый редактор",            ICON_EDITOR,        app_launch_editor },
     { "О системе (ZeroFetch)",         ICON_SYSTEM_INFO,   app_launch_fetch },
 };

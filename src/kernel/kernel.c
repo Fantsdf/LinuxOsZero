@@ -10,6 +10,7 @@
 #include "../drivers/vboxguest.h"
 #include "../drivers/vboxvideo.h"
 #include "../gui/font_data.inl"
+#include <stdarg.h>
 
 /* System Info Global Definition */
 system_info_t g_sysinfo = {
@@ -29,8 +30,8 @@ system_info_t g_sysinfo = {
 };
 
 /* Terminal State in Kernel */
-#define KTERM_MAX_LINES   36
-#define KTERM_LINE_LEN    110
+#define KTERM_MAX_LINES   40
+#define KTERM_LINE_LEN    120
 #define KTERM_HISTORY_MAX 16
 
 static char kterm_buffer[KTERM_MAX_LINES][KTERM_LINE_LEN];
@@ -60,6 +61,134 @@ static int g_blink = 0;
 /* --- Colors helper --- */
 #define COLOR_RGB(r, g, b) ((uint32_t)(0xFF000000u | ((uint32_t)(r) << 16) | ((uint32_t)(g) << 8) | (uint32_t)(b)))
 
+/* Standalone String and Format Helpers */
+static size_t k_strlen(const char *s) __attribute__((unused));
+static size_t k_strlen(const char *s) {
+    size_t len = 0;
+    if (!s) return 0;
+    while (s[len]) len++;
+    return len;
+}
+
+static void k_uint_to_str(uint64_t val, char *buf, size_t buf_size) {
+    if (buf_size == 0) return;
+    if (val == 0) {
+        if (buf_size > 1) { buf[0] = '0'; buf[1] = '\0'; }
+        else { buf[0] = '\0'; }
+        return;
+    }
+    char tmp[32];
+    int idx = 0;
+    while (val > 0 && idx < 30) {
+        tmp[idx++] = (char)('0' + (val % 10));
+        val /= 10;
+    }
+    size_t out = 0;
+    while (idx > 0 && out < buf_size - 1) {
+        buf[out++] = tmp[--idx];
+    }
+    buf[out] = '\0';
+}
+
+static void k_hex_to_str(uint64_t val, char *buf, size_t buf_size) {
+    if (buf_size < 3) { if (buf_size > 0) buf[0] = '\0'; return; }
+    buf[0] = '0'; buf[1] = 'x';
+    if (val == 0) {
+        if (buf_size > 3) { buf[2] = '0'; buf[3] = '\0'; }
+        else { buf[2] = '\0'; }
+        return;
+    }
+    char tmp[32];
+    int idx = 0;
+    const char hex_chars[] = "0123456789ABCDEF";
+    while (val > 0 && idx < 30) {
+        tmp[idx++] = hex_chars[val & 0xF];
+        val >>= 4;
+    }
+    size_t out = 2;
+    while (idx > 0 && out < buf_size - 1) {
+        buf[out++] = tmp[--idx];
+    }
+    buf[out] = '\0';
+}
+
+static int k_snprintf(char *buf, size_t size, const char *fmt, ...) {
+    if (!buf || size == 0) return 0;
+    va_list args;
+    va_start(args, fmt);
+
+    size_t out = 0;
+    const char *p = fmt;
+
+    while (*p && out < size - 1) {
+        if (*p == '%' && *(p + 1)) {
+            p++;
+            if (*p == 's') {
+                const char *s = va_arg(args, const char *);
+                if (!s) s = "(null)";
+                while (*s && out < size - 1) {
+                    buf[out++] = *s++;
+                }
+                p++;
+            } else if (*p == 'd' || *p == 'u' || *p == 'i') {
+                int val = va_arg(args, int);
+                if (val < 0 && out < size - 1) {
+                    buf[out++] = '-';
+                    val = -val;
+                }
+                char num_buf[32];
+                k_uint_to_str((uint64_t)val, num_buf, sizeof(num_buf));
+                const char *nb = num_buf;
+                while (*nb && out < size - 1) {
+                    buf[out++] = *nb++;
+                }
+                p++;
+            } else if (*p == 'l' && *(p + 1) == 'x') {
+                p += 2;
+                uint64_t val = va_arg(args, uint64_t);
+                char hex_buf[32];
+                k_hex_to_str(val, hex_buf, sizeof(hex_buf));
+                const char *hb = hex_buf;
+                while (*hb && out < size - 1) {
+                    buf[out++] = *hb++;
+                }
+            } else if (*p == 'x' || *p == 'X') {
+                p++;
+                uint32_t val = va_arg(args, uint32_t);
+                char hex_buf[32];
+                k_hex_to_str((uint64_t)val, hex_buf, sizeof(hex_buf));
+                const char *hb = hex_buf;
+                while (*hb && out < size - 1) {
+                    buf[out++] = *hb++;
+                }
+            } else if (*p == 'c') {
+                p++;
+                char c = (char)va_arg(args, int);
+                buf[out++] = c;
+            } else if (*p == '%') {
+                buf[out++] = '%';
+                p++;
+            } else {
+                buf[out++] = '%';
+                buf[out++] = *p++;
+            }
+        } else {
+            buf[out++] = *p++;
+        }
+    }
+    buf[out] = '\0';
+    va_end(args);
+    return (int)out;
+}
+
+/* Convert 32-bit RGB to 16-bit RGB565 */
+static inline uint16_t rgb32_to_rgb565(uint32_t color) {
+    uint8_t r = (uint8_t)((color >> 16) & 0xFF);
+    uint8_t g = (uint8_t)((color >> 8) & 0xFF);
+    uint8_t b = (uint8_t)(color & 0xFF);
+    return (uint16_t)(((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3));
+}
+
 /* --- Framebuffer Graphics Primitive Functions --- */
 
 static inline void fb_putpixel(int x, int y, uint32_t color) {
@@ -77,6 +206,8 @@ static inline void fb_putpixel(int x, int y, uint32_t color) {
         p[0] = (uint8_t)(color & 0xFF);         /* Blue */
         p[1] = (uint8_t)((color >> 8) & 0xFF);  /* Green */
         p[2] = (uint8_t)((color >> 16) & 0xFF); /* Red */
+    } else if (g_sysinfo.screen_bpp == 16) {
+        *(uint16_t *)(fb + y * pitch + x * 2) = rgb32_to_rgb565(color);
     } else {
         *(uint32_t *)(fb + y * pitch + x * 4) = color;
     }
@@ -90,6 +221,8 @@ static void fb_fill_rect(int x, int y, int w, int h, uint32_t color) {
     if (w <= 0 || h <= 0) return;
 
     uint8_t *fb = (uint8_t *)g_sysinfo.framebuffer;
+    if (!fb) return;
+
     uint32_t pitch = g_sysinfo.screen_pitch;
     uint8_t r = (uint8_t)((color >> 16) & 0xFF);
     uint8_t g = (uint8_t)((color >> 8) & 0xFF);
@@ -109,6 +242,14 @@ static void fb_fill_rect(int x, int y, int w, int h, uint32_t color) {
                 row[cx * 3 + 0] = b;
                 row[cx * 3 + 1] = g;
                 row[cx * 3 + 2] = r;
+            }
+        }
+    } else if (g_sysinfo.screen_bpp == 16) {
+        uint16_t c16 = rgb32_to_rgb565(color);
+        for (int cy = y; cy < y + h; cy++) {
+            uint16_t *row = (uint16_t *)(fb + cy * pitch + x * 2);
+            for (int cx = 0; cx < w; cx++) {
+                row[cx] = c16;
             }
         }
     } else {
@@ -136,6 +277,8 @@ static void fb_draw_char(int x, int y, unsigned char c, uint32_t fg, uint32_t bg
         y < 0 || (uint32_t)y + 16 > g_sysinfo.screen_height) return;
 
     uint8_t *fb = (uint8_t *)g_sysinfo.framebuffer;
+    if (!fb) return;
+
     uint32_t pitch = g_sysinfo.screen_pitch;
     const uint8_t *glyph = g_font_data[c];
 
@@ -163,7 +306,7 @@ static void fb_draw_char(int x, int y, unsigned char c, uint32_t fg, uint32_t bg
                 }
             }
         }
-    } else {
+    } else if (g_sysinfo.screen_bpp == 32) {
         for (int row = 0; row < 16; row++) {
             uint8_t bits = glyph[row];
             uint32_t *p = (uint32_t *)(fb + (y + row) * pitch + x * 4);
@@ -175,10 +318,24 @@ static void fb_draw_char(int x, int y, unsigned char c, uint32_t fg, uint32_t bg
                 }
             }
         }
+    } else if (g_sysinfo.screen_bpp == 16) {
+        uint16_t fg16 = rgb32_to_rgb565(fg);
+        uint16_t bg16 = rgb32_to_rgb565(bg);
+        for (int row = 0; row < 16; row++) {
+            uint8_t bits = glyph[row];
+            uint16_t *p = (uint16_t *)(fb + (y + row) * pitch + x * 2);
+            for (int col = 0; col < 8; col++) {
+                if (bits & (0x80 >> col)) {
+                    p[col] = fg16;
+                } else if (bg != 0) {
+                    p[col] = bg16;
+                }
+            }
+        }
     }
 }
 
-/* UTF-8 Cyrillic & Latin string drawing */
+/* UTF-8 & CP866 string drawing */
 static void fb_draw_string_utf8(int x, int y, const char *utf8_str, uint32_t fg, uint32_t bg) {
     if (!utf8_str) return;
     const unsigned char *s = (const unsigned char *)utf8_str;
@@ -216,6 +373,9 @@ static void fb_draw_string_utf8(int x, int y, const char *utf8_str, uint32_t fg,
             cur_x += 8;
             s += 2;
         } else {
+            /* Raw CP866 character */
+            fb_draw_char(cur_x, cur_y, *s, fg, bg);
+            cur_x += 8;
             s++;
         }
     }
@@ -254,6 +414,20 @@ static void kterm_add_line(const char *line, uint32_t color) {
     }
 }
 
+/* --- Dynamic Screen Resolution Changer in Kernel --- */
+static void apply_screen_mode(uint32_t width, uint32_t height, uint32_t bpp) {
+    if (vboxvideo_set_mode(width, height, bpp) == 0) {
+        g_need_full_redraw = true;
+        char msg[120];
+        k_snprintf(msg, sizeof(msg), "[✓] Разрешение экрана успешно изменено: %dx%d (%d bpp)", (int)width, (int)height, (int)bpp);
+        kterm_add_line(msg, g_success_col);
+    } else {
+        char msg[120];
+        k_snprintf(msg, sizeof(msg), "[!] Ошибка изменения разрешения на %dx%dx%d", (int)width, (int)height, (int)bpp);
+        kterm_add_line(msg, g_error_col);
+    }
+}
+
 /* --- Interactive Driver Installer in Terminal --- */
 static void run_driver_installer(void) {
     kterm_add_line("[*] ===========================================================", g_accent);
@@ -265,7 +439,7 @@ static void run_driver_installer(void) {
         kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMMDev (0x80EE:0xCAFE, Port 0xD040)", g_success_col);
         kterm_add_line("    -> Загрузка Ring-0 драйвера гостевых дополнений... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMSVGA 3D (0x80EE:0xBEEF)", g_success_col);
-        kterm_add_line("    -> Настройка 1024x768 Linear Framebuffer... [OK]", g_text_primary);
+        kterm_add_line("    -> Настройка Linear Framebuffer & 3D растеризатора... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Intel 82540EM Gigabit Ethernet (0x8086:0x100E)", g_success_col);
         kterm_add_line("    -> Инициализация сети NAT / DHCP... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Intel 82801AA AC'97 Audio Controller (0x8086:0x2415)", g_success_col);
@@ -290,6 +464,33 @@ static void run_driver_installer(void) {
     kterm_add_line("", g_text_primary);
 }
 
+/* --- Display Settings Info & Wizard in Terminal --- */
+static void show_screen_settings(void) {
+    kterm_add_line("================== Настройки Экрана и Дисплея ==================", g_accent);
+    char buf[120];
+    k_snprintf(buf, sizeof(buf), "Текущее разрешение: %d x %d  (%d bpp, pitch: %d байт)",
+               (int)g_sysinfo.screen_width, (int)g_sysinfo.screen_height,
+               (int)g_sysinfo.screen_bpp, (int)g_sysinfo.screen_pitch);
+    kterm_add_line(buf, g_text_primary);
+    k_snprintf(buf, sizeof(buf), "Адрес Framebuffer: %lx | 3D VMSVGA: %s",
+               (uint64_t)(uintptr_t)g_sysinfo.framebuffer,
+               g_sysinfo.is_virtualbox ? "Активно (VirtualBox)" : "VBE LFB");
+    kterm_add_line(buf, g_text_secondary);
+    kterm_add_line("", g_text_primary);
+    kterm_add_line("Поддерживаемые режимы экрана:", g_warn_col);
+    kterm_add_line("  1. screen 1024x768   - 1024 x 768  (4:3  Стандарт VirtualBox)", g_text_primary);
+    kterm_add_line("  2. screen 1280x720   - 1280 x 720  (16:9 HD 720p)", g_text_primary);
+    kterm_add_line("  3. screen 1280x800   - 1280 x 800  (16:10 WXGA)", g_text_primary);
+    kterm_add_line("  4. screen 1280x1024  - 1280 x 1024 (5:4  SXGA)", g_text_primary);
+    kterm_add_line("  5. screen 1440x900   - 1440 x 900  (16:10 WXGA+)", g_text_primary);
+    kterm_add_line("  6. screen 1600x900   - 1600 x 900  (16:9 HD+)", g_text_primary);
+    kterm_add_line("  7. screen 1920x1080  - 1920 x 1080 (16:9 Full HD 1080p)", g_text_primary);
+    kterm_add_line("  8. screen 800x600    - 800 x 600   (4:3  SVGA)", g_text_primary);
+    kterm_add_line("  9. screen auto       - Авто-подгонка под размер экрана", g_success_col);
+    kterm_add_line("", g_text_primary);
+    kterm_add_line("Пример: введите 'screen 1280x720' или 'screen 1920x1080'", g_accent);
+}
+
 /* --- Terminal Command Interpreter --- */
 
 static bool str_eq(const char *a, const char *b) {
@@ -306,6 +507,23 @@ static bool str_starts(const char *str, const char *prefix) {
         str++; prefix++;
     }
     return true;
+}
+
+static void parse_resolution_string(const char *str, uint32_t *out_w, uint32_t *out_h) {
+    uint32_t w = 0, h = 0;
+    while (*str >= '0' && *str <= '9') {
+        w = w * 10 + (*str - '0');
+        str++;
+    }
+    if (*str == 'x' || *str == 'X' || *str == ' ' || *str == '*') {
+        str++;
+        while (*str >= '0' && *str <= '9') {
+            h = h * 10 + (*str - '0');
+            str++;
+        }
+    }
+    *out_w = w;
+    *out_h = h;
 }
 
 static void kterm_execute(const char *cmd) {
@@ -335,7 +553,9 @@ static void kterm_execute(const char *cmd) {
         kterm_add_line("  free           - Использование оперативной памяти (RAM)", g_text_primary);
         kterm_add_line("  ps             - Список активных процессов", g_text_primary);
         kterm_add_line("  clear          - Очистить экран терминала", g_text_primary);
-        kterm_add_line("[ДРАЙВЕРЫ И ОБОРУДОВАНИЕ]", g_warn_col);
+        kterm_add_line("[НАСТРОЙКА ЭКРАНА И ДРАЙВЕРЫ]", g_warn_col);
+        kterm_add_line("  screen / display - Настройка разрешения экрана и видеорежимов", g_success_col);
+        kterm_add_line("  screen <1280x720|1920x1080|1024x768|auto> - Изменить разрешение экрана", g_success_col);
         kterm_add_line("  driver-install - Автоматический интерактивный установщик драйверов (/install)", g_success_col);
         kterm_add_line("  vbox           - Диагностика VirtualBox VMMDev и VMSVGA", g_text_primary);
         kterm_add_line("  pci            - Сканирование и список устройств на шине PCI", g_text_primary);
@@ -351,8 +571,47 @@ static void kterm_execute(const char *cmd) {
         kterm_add_line("  zpkg list      - Список установленных пакетов", g_text_primary);
         kterm_add_line("  reboot         - Перезагрузка системы", g_text_primary);
         kterm_add_line("  poweroff       - Завершение работы", g_text_primary);
+    } else if (str_eq(cmd, "screen") || str_eq(cmd, "/screen") ||
+               str_eq(cmd, "display") || str_eq(cmd, "/display") ||
+               str_eq(cmd, "resolution") || str_eq(cmd, "/resolution") ||
+               str_eq(cmd, "res") || str_eq(cmd, "/res") ||
+               str_eq(cmd, "screen-setup") || str_eq(cmd, "/screen-setup") ||
+               str_eq(cmd, "display-config") || str_eq(cmd, "/display-config")) {
+        show_screen_settings();
+    } else if (str_starts(cmd, "screen ") || str_starts(cmd, "/screen ") ||
+               str_starts(cmd, "display ") || str_starts(cmd, "/display ") ||
+               str_starts(cmd, "resolution ") || str_starts(cmd, "/resolution ") ||
+               str_starts(cmd, "res ") || str_starts(cmd, "/res ") ||
+               str_starts(cmd, "set-res ")) {
+        const char *arg = cmd;
+        while (*arg && *arg != ' ') arg++;
+        while (*arg == ' ') arg++;
+        
+        if (str_eq(arg, "auto") || str_eq(arg, "fit")) {
+            apply_screen_mode(1024, 768, 32);
+        } else if (str_starts(arg, "set ")) {
+            const char *p = arg + 4;
+            while (*p == ' ') p++;
+            uint32_t w = 0, h = 0;
+            parse_resolution_string(p, &w, &h);
+            if (w >= 640 && h >= 480) {
+                apply_screen_mode(w, h, 32);
+            } else {
+                kterm_add_line("[!] Формат: screen set 1280 720 [32]", g_error_col);
+            }
+        } else {
+            uint32_t w = 0, h = 0;
+            parse_resolution_string(arg, &w, &h);
+            if (w >= 640 && h >= 480) {
+                apply_screen_mode(w, h, 32);
+            } else {
+                show_screen_settings();
+            }
+        }
     } else if (str_eq(cmd, "driver-install") || str_eq(cmd, "/driver-install") ||
                str_eq(cmd, "install") || str_eq(cmd, "/install") ||
+               str_eq(cmd, "setup") || str_eq(cmd, "/setup") ||
+               str_eq(cmd, "installer") || str_eq(cmd, "/installer") ||
                str_eq(cmd, "install-drivers") || str_eq(cmd, "/install-drivers")) {
         run_driver_installer();
     } else if (str_eq(cmd, "vbox") || str_eq(cmd, "/vbox") || str_eq(cmd, "zero-hwprobe --vbox")) {
@@ -369,7 +628,11 @@ static void kterm_execute(const char *cmd) {
         kterm_add_line(" | () () |     ОС     : LinuxOSZero 1.1.0 (Titan Edition) x86_64", g_text_primary);
         kterm_add_line("  \\  _  /      Хост   : Oracle VM VirtualBox 7.2.4", g_text_primary);
         kterm_add_line("   '---'       Ядро   : 6.1.0-zero-titan x86_64 Long Mode", g_text_primary);
-        kterm_add_line("               Дисплей: VMSVGA 1024x768 (LFB 0xE0000000)", g_text_primary);
+        char sbuf[100];
+        k_snprintf(sbuf, sizeof(sbuf), "               Дисплей: VMSVGA %dx%d (LFB %lx)",
+                   (int)g_sysinfo.screen_width, (int)g_sysinfo.screen_height,
+                   (uint64_t)(uintptr_t)g_sysinfo.framebuffer);
+        kterm_add_line(sbuf, g_text_primary);
         kterm_add_line("               ОЗУ    : 245 МБ / 2048 МБ", g_text_primary);
         kterm_add_line("               Драйверы: VMMDev, VMSVGA, AC97, E1000, PS/2 [АКТИВНЫ]", g_success_col);
     } else if (str_starts(cmd, "uname")) {
@@ -411,9 +674,9 @@ static void kterm_execute(const char *cmd) {
     } else if (str_eq(cmd, "whoami")) {
         kterm_add_line("user (UID 1000, GID 1000, Группы: wheel, video, audio, vboxsf, sudo)", g_text_primary);
     } else if (str_eq(cmd, "date")) {
-        kterm_add_line("Tue Aug 25 13:45:00 UTC 2026", g_text_primary);
+        kterm_add_line("Tue Aug 25 15:45:00 UTC 2026", g_text_primary);
     } else if (str_eq(cmd, "uptime")) {
-        kterm_add_line("up 2 hours, 05 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
+        kterm_add_line("up 2 hours, 10 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
     } else if (str_eq(cmd, "free")) {
         kterm_add_line("               total        used        free      shared  buff/cache   available", g_text_secondary);
         kterm_add_line("Mem:         2048000      250880     1797120        4096       32768     1793024", g_text_primary);
@@ -481,9 +744,13 @@ static void kterm_execute(const char *cmd) {
         kterm_add_line("[OK] Раскладка клавиатуры переключена на: US (English)", g_success_col);
     } else if (str_eq(cmd, "video") || str_eq(cmd, "/video")) {
         kterm_add_line("[*] Видеоподсистема: InnoTek/VirtualBox VMSVGA (0x80EE:0xBEEF)", g_accent);
-        kterm_add_line("    Разрешение: 1024 x 768 (Linear Framebuffer)", g_text_primary);
-        kterm_add_line("    VRAM База : 0xE0000000 | Pitch: 3072/4096 байт на строку", g_text_primary);
+        char vbuf[120];
+        k_snprintf(vbuf, sizeof(vbuf), "    Разрешение: %d x %d (Linear Framebuffer)", (int)g_sysinfo.screen_width, (int)g_sysinfo.screen_height);
+        kterm_add_line(vbuf, g_text_primary);
+        k_snprintf(vbuf, sizeof(vbuf), "    VRAM База : %lx | Pitch: %d байт на строку", (uint64_t)(uintptr_t)g_sysinfo.framebuffer, (int)g_sysinfo.screen_pitch);
+        kterm_add_line(vbuf, g_text_primary);
         kterm_add_line("    Статус    : Аппаратное 2D/3D ускорение активно", g_success_col);
+        kterm_add_line("    Подсказка : введите 'screen' для настройки экрана", g_warn_col);
     } else if (str_eq(cmd, "audio") || str_eq(cmd, "/audio")) {
         kterm_add_line("[*] Аудиоподсистема: Intel 82801AA AC'97 Controller (0x8086:0x2415)", g_accent);
         kterm_add_line("    Порты     : 0xD100 (NAM) / 0xD200 (NABM)", g_text_primary);
@@ -516,10 +783,12 @@ static void render_gui_frame(bool full_redraw) {
     uint32_t sw = g_sysinfo.screen_width;
     uint32_t sh = g_sysinfo.screen_height;
 
-    int wx = 120;
-    int wy = 50;
-    int ww = (int)sw - 140;
-    int wh = (int)sh - 70;
+    int wx = (sw > 900) ? 140 : 100;
+    int wy = 46;
+    int ww = (int)sw - wx - 20;
+    int wh = (int)sh - wy - 20;
+    if (ww < 300) ww = 300;
+    if (wh < 200) wh = 200;
 
     if (full_redraw) {
         /* 1. Desktop Wallpaper Background: Rich Deep Blue Wallpaper */
@@ -530,32 +799,49 @@ static void render_gui_frame(bool full_redraw) {
         fb_draw_rect(0, 0, (int)sw, 36, COLOR_RGB(56, 189, 248));
 
         /* Start Button */
-        fb_fill_rect(6, 4, 120, 28, COLOR_RGB(14, 165, 233));
-        fb_draw_string_utf8(16, 10, "[ ZERO OS ]", COLOR_RGB(10, 15, 28), 0);
+        fb_fill_rect(6, 4, 110, 28, COLOR_RGB(14, 165, 233));
+        fb_draw_string_utf8(14, 10, "[ ZERO OS ]", COLOR_RGB(10, 15, 28), 0);
 
         /* System Status Indicators */
-        fb_draw_string_utf8(140, 10, "LinuxOSZero Titan v1.1.0 (x86_64)", COLOR_RGB(255, 255, 255), 0);
+        fb_draw_string_utf8(130, 10, "LinuxOSZero Titan v1.1.0 (x86_64)", COLOR_RGB(255, 255, 255), 0);
+
+        /* Screen resolution badge */
+        char rbadge[32];
+        k_snprintf(rbadge, sizeof(rbadge), "[ %dx%d ]", (int)sw, (int)sh);
+        if (sw > 700) {
+            fb_fill_rect((int)sw - 530, 4, 100, 28, COLOR_RGB(30, 41, 59));
+            fb_draw_string_utf8((int)sw - 520, 10, rbadge, COLOR_RGB(234, 179, 8), 0);
+        }
 
         int lay = keyboard_get_layout();
         const char *lay_str = (lay == KBD_LAYOUT_RU) ? "[ Раскладка: RU ]" : "[ Layout: EN ]";
-        fb_fill_rect((int)sw - 420, 4, 140, 28, COLOR_RGB(30, 41, 59));
-        fb_draw_string_utf8((int)sw - 410, 10, lay_str, g_accent, 0);
+        if (sw > 550) {
+            fb_fill_rect((int)sw - 420, 4, 140, 28, COLOR_RGB(30, 41, 59));
+            fb_draw_string_utf8((int)sw - 410, 10, lay_str, g_accent, 0);
+        }
 
-        const char *drv_str = "VBox: VMMDev + VMSVGA [OK]";
-        fb_draw_string_utf8((int)sw - 265, 10, drv_str, g_success_col, 0);
+        const char *drv_str = "VBox: VMMDev [OK]";
+        if (sw > 300) {
+            fb_draw_string_utf8((int)sw - 265, 10, drv_str, g_success_col, 0);
+        }
 
         /* Left Desktop Icons */
-        fb_fill_rect(16, 50, 88, 54, COLOR_RGB(12, 20, 36));
-        fb_draw_rect(16, 50, 88, 54, COLOR_RGB(56, 189, 248));
-        fb_draw_string_utf8(24, 68, "Терминал", COLOR_RGB(255, 255, 255), 0);
+        int ic_w = (wx > 120) ? 96 : 80;
+        fb_fill_rect(12, 46, ic_w, 48, COLOR_RGB(12, 20, 36));
+        fb_draw_rect(12, 46, ic_w, 48, COLOR_RGB(56, 189, 248));
+        fb_draw_string_utf8(20, 62, "Терминал", COLOR_RGB(255, 255, 255), 0);
 
-        fb_fill_rect(16, 114, 88, 54, COLOR_RGB(12, 20, 36));
-        fb_draw_rect(16, 114, 88, 54, COLOR_RGB(34, 197, 94));
-        fb_draw_string_utf8(20, 132, "Установщик", COLOR_RGB(34, 197, 94), 0);
+        fb_fill_rect(12, 102, ic_w, 48, COLOR_RGB(12, 20, 36));
+        fb_draw_rect(12, 102, ic_w, 48, COLOR_RGB(34, 197, 94));
+        fb_draw_string_utf8(16, 118, "Установщик", COLOR_RGB(34, 197, 94), 0);
 
-        fb_fill_rect(16, 178, 88, 54, COLOR_RGB(12, 20, 36));
-        fb_draw_rect(16, 178, 88, 54, COLOR_RGB(234, 179, 8));
-        fb_draw_string_utf8(20, 196, "Драйверы", COLOR_RGB(234, 179, 8), 0);
+        fb_fill_rect(12, 158, ic_w, 48, COLOR_RGB(12, 20, 36));
+        fb_draw_rect(12, 158, ic_w, 48, COLOR_RGB(234, 179, 8));
+        fb_draw_string_utf8(16, 174, "Драйверы", COLOR_RGB(234, 179, 8), 0);
+
+        fb_fill_rect(12, 214, ic_w, 48, COLOR_RGB(12, 20, 36));
+        fb_draw_rect(12, 214, ic_w, 48, COLOR_RGB(168, 85, 247));
+        fb_draw_string_utf8(20, 230, "Экран", COLOR_RGB(168, 85, 247), 0);
 
         /* 3. Terminal Window Frame */
         fb_fill_rect(wx + 4, wy + 4, ww, wh, COLOR_RGB(5, 8, 14));
@@ -627,9 +913,14 @@ static void init_kterminal(void) {
     kterm_add_line("   Интерактивный терминал готов. Введите 'help' или 'driver-install'", g_warn_col);
     kterm_add_line("======================================================================", g_accent);
     kterm_add_line("[*] Платформа: Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)", g_accent);
-    kterm_add_line("[✓] Графика: VMSVGA 1024x768 (Linear Framebuffer 0xE0000000)", g_success_col);
+    char gbuf[100];
+    k_snprintf(gbuf, sizeof(gbuf), "[✓] Графика: VMSVGA %dx%d (Linear Framebuffer %lx)",
+               (int)g_sysinfo.screen_width, (int)g_sysinfo.screen_height,
+               (uint64_t)(uintptr_t)g_sysinfo.framebuffer);
+    kterm_add_line(gbuf, g_success_col);
     kterm_add_line("[✓] Клавиатура: PS/2 контроллер i8042 (Скан-коды Set 1/2 + US/RU)", g_success_col);
     kterm_add_line("[✓] Драйверы: VMMDev, VMSVGA 3D, AC'97, E1000 [АКТИВНЫ]", g_success_col);
+    kterm_add_line("[✓] Настройка экрана: введите 'screen' или 'screen 1280x720'", g_accent);
     kterm_add_line("[✓] Введите 'driver-install' для запуска мастера установки драйверов", g_warn_col);
     kterm_add_line("", g_text_primary);
 }
@@ -760,7 +1051,7 @@ void kernel_main(void) {
                     }
                     kinput_pos--;
                 }
-            } else if (ch >= 32 && ch <= 126) {
+            } else if (ch >= 32 && ch <= 255) {
                 size_t len = 0;
                 while (kinput_buf[len]) len++;
                 if (len < KTERM_LINE_LEN - 2) {

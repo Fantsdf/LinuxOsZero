@@ -42,7 +42,7 @@ static desktop_icon_t desktop_icons[] = {
     { "Установка ОС",   ICON_INSTALLER,     24,  24, app_launch_installer },
     { "Терминал",       ICON_TERMINAL,      24, 110, app_launch_terminal },
     { "Файлы",          ICON_FILE_MANAGER,  24, 196, app_launch_file_manager },
-    { "Параметры",      ICON_CONTROL_PANEL, 24, 282, app_launch_control_panel },
+    { "Экран и опции",  ICON_CONTROL_PANEL, 24, 282, app_launch_control_panel },
     { "Редактор",       ICON_EDITOR,        24, 368, app_launch_editor },
     { "О системе",      ICON_SYSTEM_INFO,   24, 454, app_launch_fetch },
 };
@@ -76,7 +76,7 @@ static void draw_desktop_icons(mouse_state_t *mouse) {
         /* Draw Icon Label */
         int tw = font_get_string_width(ico->title);
         int tx = ix + 10 + (40 - tw) / 2;
-        font_draw_string(tx, iy + 46, ico->title, g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string_utf8(tx, iy + 46, ico->title, g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
     }
 }
 

@@ -17,7 +17,7 @@
 #include <string.h>
 #include <time.h>
 
-#define TERM_MAX_LINES 32
+#define TERM_MAX_LINES 36
 #define TERM_LINE_LEN  128
 #define TERM_HISTORY_MAX 16
 
@@ -66,18 +66,20 @@ static void term_execute_command(const char *cmd) {
 
     /* Execute built-in commands */
     if (strcmp(cmd, "help") == 0 || strcmp(cmd, "/help") == 0 || strcmp(cmd, "?") == 0) {
-        term_add_line("================== LinuxOSZero Commands ==================");
+        term_add_line("================== LinuxOSZero Команды ==================");
         term_add_line("[СИСТЕМА]");
-        term_add_line("  uname -a       - Show OS & kernel architecture info");
-        term_add_line("  fetch          - Display system info & stylized ASCII logo");
-        term_add_line("  whoami         - Print current logged-in username");
-        term_add_line("  uptime         - Show operating system uptime");
-        term_add_line("  date           - Show current system date and time");
-        term_add_line("  free           - Display memory allocation statistics");
-        term_add_line("  ps             - List running system processes");
-        term_add_line("  clear          - Clear terminal screen");
-        term_add_line("[ДРАЙВЕРЫ И ОБОРУДОВАНИЕ]");
-        term_add_line("  driver-install - Interactive automated hardware driver installer (/install)");
+        term_add_line("  uname -a       - Архитектура ядра и версия ОС");
+        term_add_line("  fetch / neofetch - Системная информация и цветной логотип");
+        term_add_line("  whoami         - Текущий пользователь и права доступа");
+        term_add_line("  uptime         - Время непрерывной работы системы");
+        term_add_line("  date           - Текущая дата и системное время");
+        term_add_line("  free           - Использование оперативной памяти (RAM)");
+        term_add_line("  ps             - Список активных процессов");
+        term_add_line("  clear          - Очистить экран терминала");
+        term_add_line("[НАСТРОЙКА ЭКРАНА И ДРАЙВЕРЫ]");
+        term_add_line("  screen / display - Настройка разрешения экрана и видеорежимов");
+        term_add_line("  screen <1280x720|1920x1080|1024x768|auto> - Изменить разрешение");
+        term_add_line("  driver-install - Автоматический интерактивный установщик драйверов (/install)");
         term_add_line("  vbox           - VirtualBox VMMDev & VMSVGA diagnostics");
         term_add_line("  pci            - Scan and display all PCI hardware devices");
         term_add_line("  video          - Display resolution and VMSVGA 3D info");
@@ -92,8 +94,48 @@ static void term_execute_command(const char *cmd) {
         term_add_line("  theme          - Toggle between dark/light desktop themes");
         term_add_line("  zpkg list      - Query installed package list");
         term_add_line("  exit           - Close terminal window");
+    } else if (strcmp(cmd, "screen") == 0 || strcmp(cmd, "/screen") == 0 ||
+               strcmp(cmd, "display") == 0 || strcmp(cmd, "/display") == 0 ||
+               strcmp(cmd, "resolution") == 0 || strcmp(cmd, "/resolution") == 0 ||
+               strcmp(cmd, "res") == 0) {
+        term_add_line("================== Настройки Экрана и Дисплея ==================");
+        vbox_display_mode_t mode;
+        vboxvideo_get_current_mode(&mode);
+        char sbuf[128];
+        snprintf(sbuf, sizeof(sbuf), "Текущее разрешение: %d x %d (%d bpp, pitch: %d байт)", mode.width, mode.height, mode.bpp, mode.pitch);
+        term_add_line(sbuf);
+        term_add_line("Поддерживаемые режимы экрана:");
+        term_add_line("  1. screen 1024x768   - 1024 x 768  (4:3  Стандарт VirtualBox)");
+        term_add_line("  2. screen 1280x720   - 1280 x 720  (16:9 HD 720p)");
+        term_add_line("  3. screen 1280x800   - 1280 x 800  (16:10 WXGA)");
+        term_add_line("  4. screen 1280x1024  - 1280 x 1024 (5:4  SXGA)");
+        term_add_line("  5. screen 1440x900   - 1440 x 900  (16:10 WXGA+)");
+        term_add_line("  6. screen 1600x900   - 1600 x 900  (16:9 HD+)");
+        term_add_line("  7. screen 1920x1080  - 1920 x 1080 (16:9 Full HD 1080p)");
+        term_add_line("  8. screen auto       - Авто-подгонка под размер экрана");
+    } else if (strncmp(cmd, "screen ", 7) == 0 || strncmp(cmd, "/screen ", 8) == 0 ||
+               strncmp(cmd, "display ", 8) == 0 || strncmp(cmd, "res ", 4) == 0) {
+        const char *arg = strchr(cmd, ' ');
+        if (arg) {
+            while (*arg == ' ') arg++;
+            if (strcmp(arg, "auto") == 0 || strcmp(arg, "fit") == 0) {
+                vboxvideo_set_mode(1024, 768, 32);
+                term_add_line("[OK] Установлен оптимальный видеорежим 1024x768x32");
+            } else {
+                int w = 0, h = 0;
+                if (sscanf(arg, "%dx%d", &w, &h) == 2 && w >= 640 && h >= 480) {
+                    vboxvideo_set_mode((uint32_t)w, (uint32_t)h, 32);
+                    char obuf[128];
+                    snprintf(obuf, sizeof(obuf), "[OK] Разрешение экрана изменено на %d x %d (32 bpp)", w, h);
+                    term_add_line(obuf);
+                } else {
+                    term_add_line("[!] Формат команды: screen 1280x720 или screen auto");
+                }
+            }
+        }
     } else if (strcmp(cmd, "driver-install") == 0 || strcmp(cmd, "/driver-install") == 0 ||
                strcmp(cmd, "install") == 0 || strcmp(cmd, "/install") == 0 ||
+               strcmp(cmd, "setup") == 0 || strcmp(cmd, "/setup") == 0 ||
                strcmp(cmd, "install-drivers") == 0) {
         term_add_line("[*] ===========================================================");
         term_add_line("[*]     Установщик оборудования LinuxOSZero (Titan Edition)     ");
@@ -130,6 +172,7 @@ static void term_execute_command(const char *cmd) {
         term_add_line("  Разрешение: 1024 x 768 @ 32 bpp (Linear Framebuffer 0xE0000000)");
         term_add_line("  Pitch     : 4096 байт на строку");
         term_add_line("  Статус    : Аппаратное 2D/3D ускорение активно");
+        term_add_line("  Настройка : введите 'screen' для выбора разрешения");
     } else if (strcmp(cmd, "audio") == 0 || strcmp(cmd, "/audio") == 0) {
         term_add_line("Аудиоподсистема: Intel 82801AA AC'97 Audio Controller");
         term_add_line("  Порты     : 0xD100 (NAM) / 0xD200 (NABM)");
@@ -160,7 +203,8 @@ static void term_execute_command(const char *cmd) {
         term_add_line("  base-system-1.1.0-x86_64 [installed]");
         term_add_line("  zero-kernel-6.1.0-titan  [installed]");
         term_add_line("  zero-wm-1.1.0            [installed]");
-        term_add_line("  vbox-guest-additions-7.0 [installed]");
+        term_add_line("  vbox-guest-additions-7.2 [installed]");
+        term_add_line("  zero-display-config-1.1  [installed]");
         term_add_line("  zero-apps-suite-1.1      [installed]");
         term_add_line("  gcc-toolchain-x86_64     [installed]");
     } else if (strcmp(cmd, "fetch") == 0 || strcmp(cmd, "neofetch") == 0) {
@@ -168,7 +212,7 @@ static void term_execute_command(const char *cmd) {
         term_add_line("  /     \\      ----------------");
         term_add_line(" | () () |     OS     : LinuxOSZero 1.1.0 (Titan) x86_64");
         term_add_line("  \\  _  /      Host   : Oracle VM VirtualBox");
-        term_add_line("   '---'       Kernel : 6.1.0-zero-x86_64");
+        term_add_line("   '---'       Kernel : 6.1.0-zero-titan x86_64");
         term_add_line("               WM     : ZeroWM (Double-Buffered)");
         term_add_line("               RAM    : 245 MB / 2048 MB");
     } else if (strcmp(cmd, "ls") == 0) {
@@ -245,7 +289,7 @@ static void term_execute_command(const char *cmd) {
 static void term_init_content(void) {
     term_line_count = 0;
     term_add_line("LinuxOSZero Terminal (x86_64 Long Mode) v1.1.0");
-    term_add_line("Interactive shell ready. Type 'help' for built-in commands.");
+    term_add_line("Interactive shell ready. Type 'help' or 'screen' for built-in commands.");
     term_add_line("");
     term_add_line("user@linuxoszero:~$ uname -a");
     term_add_line("Linux linuxoszero 6.1.0-zero-titan #1 SMP PREEMPT x86_64 GNU/Linux");
@@ -293,11 +337,11 @@ void terminal_render(window_t *win, int cx, int cy, int cw, int ch) {
         color_t col = COLOR_RGB(248, 250, 252);
         if (strstr(term_buffer[i], "user@linuxoszero")) {
             col = COLOR_RGB(56, 189, 248); /* Sky blue prompt */
-        } else if (strstr(term_buffer[i], "[OK]")) {
+        } else if (strstr(term_buffer[i], "[OK]") || strstr(term_buffer[i], "[✓]")) {
             col = COLOR_RGB(34, 197, 94);  /* Green status */
         } else if (strstr(term_buffer[i], "[*]")) {
             col = COLOR_RGB(234, 179, 8);   /* Yellow info */
-        } else if (strstr(term_buffer[i], "not found")) {
+        } else if (strstr(term_buffer[i], "not found") || strstr(term_buffer[i], "[!]")) {
             col = COLOR_RGB(239, 68, 68);   /* Red error */
         }
         font_draw_string(cx + pad_x, ly, term_buffer[i], col, COLOR_RGBA(0, 0, 0, 0));
@@ -388,8 +432,10 @@ void terminal_on_event(window_t *win, int ev_type, int p1, int p2) {
                 input_pos = (int)strlen(input_line);
             }
         } else if (key_code == KEY_TAB) {
-            /* Simple auto-complete */
-            if (strncmp(input_line, "un", 2) == 0) { snprintf(input_line, sizeof(input_line), "uname -a"); input_pos = (int)strlen(input_line); }
+            /* Auto-complete */
+            if (strncmp(input_line, "sc", 2) == 0) { snprintf(input_line, sizeof(input_line), "screen"); input_pos = (int)strlen(input_line); }
+            else if (strncmp(input_line, "dr", 2) == 0) { snprintf(input_line, sizeof(input_line), "driver-install"); input_pos = (int)strlen(input_line); }
+            else if (strncmp(input_line, "un", 2) == 0) { snprintf(input_line, sizeof(input_line), "uname -a"); input_pos = (int)strlen(input_line); }
             else if (strncmp(input_line, "vb", 2) == 0) { snprintf(input_line, sizeof(input_line), "vbox"); input_pos = (int)strlen(input_line); }
             else if (strncmp(input_line, "zp", 2) == 0) { snprintf(input_line, sizeof(input_line), "zpkg list"); input_pos = (int)strlen(input_line); }
             else if (strncmp(input_line, "fe", 2) == 0) { snprintf(input_line, sizeof(input_line), "fetch"); input_pos = (int)strlen(input_line); }

@@ -34,7 +34,7 @@ static bool set2_break_mode = false;
 static int current_layout = KBD_LAYOUT_US;
 
 /* US QWERTY Scan Code Set 1 Table (Unshifted) */
-static const char kbd_us_normal[128] = {
+static const unsigned char kbd_us_normal[128] = {
     0,   27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
     '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
     0, /* Ctrl */
@@ -58,7 +58,7 @@ static const char kbd_us_normal[128] = {
 };
 
 /* US QWERTY Scan Code Set 1 Table (Shifted) */
-static const char kbd_us_shifted[128] = {
+static const unsigned char kbd_us_shifted[128] = {
     0,   27, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b',
     '\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n',
     0, /* Ctrl */
@@ -81,14 +81,38 @@ static const char kbd_us_shifted[128] = {
     0, 0 /* F11, F12 */
 };
 
-/* Russian JCUKEN Scancode Set 1 Table (Unshifted CP866 / Extended ASCII approximation) */
-static const char kbd_ru_normal[128] = {
+/* Russian JCUKEN Scancode Set 1 Table (Unshifted CP866) */
+static const unsigned char kbd_ru_normal[128] = {
     0,   27, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
-    '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n',
+    '\t', 0xA9, 0xE6, 0xE3, 0xAA, 0xA5, 0xAD, 0xA3, 0xE8, 0xE9, 0xA7, 0xE5, 0xEA, '\n', /* й ц у к е н г ш щ з х ъ */
     0, /* Ctrl */
-    'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`',
+    0xE4, 0xEB, 0xA2, 0xA0, 0xAF, 0xE0, 0xAE, 0xAB, 0xA4, 0xA6, 0xED, 0xF1, /* ф ы в а п р о л д ж э ё */
     0, /* Left Shift */
-    '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/',
+    '\\', 0xEF, 0xE7, 0xE1, 0xAC, 0xA8, 0xE2, 0xEC, 0xA1, 0xEE, '.', /* \ я ч с м и т ь б ю . */
+    0, /* Right Shift */
+    '*',
+    0, /* Alt */
+    ' ', /* Space */
+    0, /* Caps Lock */
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, /* F1 - F10 */
+    0, /* Num Lock */
+    0, /* Scroll Lock */
+    '7', '8', '9', '-',
+    '4', '5', '6', '+',
+    '1', '2', '3',
+    '0', '.',
+    0, 0, 0,
+    0, 0 /* F11, F12 */
+};
+
+/* Russian JCUKEN Scancode Set 1 Table (Shifted CP866) */
+static const unsigned char kbd_ru_shifted[128] = {
+    0,   27, '!', '"', 0xFC, ';', '%', ':', '?', '*', '(', ')', '_', '+', '\b',
+    '\t', 0x89, 0x96, 0x93, 0x8A, 0x85, 0x8D, 0x83, 0x98, 0x99, 0x87, 0x95, 0x9A, '\n', /* Й Ц У К Е Н Г Ш Щ З Х Ъ */
+    0, /* Ctrl */
+    0x94, 0x9B, 0x82, 0x80, 0x8F, 0x90, 0x8E, 0x8B, 0x84, 0x86, 0x9D, 0xF0, /* Ф Ы В А П Р О Л Д Ж Э Ё */
+    0, /* Left Shift */
+    '/', 0x9F, 0x97, 0x91, 0x8C, 0x88, 0x92, 0x9C, 0x81, 0x9E, ',', /* / Я Ч С М И Т Ь Б Ю , */
     0, /* Right Shift */
     '*',
     0, /* Alt */
@@ -391,9 +415,9 @@ void keyboard_handle_scancode(uint8_t scancode) {
 
     if (code < 128) {
         bool use_upper = (shift_pressed ^ caps_lock);
-        char ch = 0;
+        unsigned char ch = 0;
         if (current_layout == KBD_LAYOUT_RU) {
-            ch = use_upper ? kbd_ru_normal[code] : kbd_ru_normal[code];
+            ch = use_upper ? kbd_ru_shifted[code] : kbd_ru_normal[code];
             if (ch == 0) {
                 ch = use_upper ? kbd_us_shifted[code] : kbd_us_normal[code];
             }
@@ -409,10 +433,10 @@ void keyboard_handle_scancode(uint8_t scancode) {
         else if (code == 0x0F) key_code = KEY_TAB;
         else if (code == 0x39) key_code = KEY_SPACE;
 
-        queue_event(key_code, ch, !released);
+        queue_event(key_code, (char)ch, !released);
 
         if (!released && ch != 0) {
-            queue_char((uint8_t)ch);
+            queue_char(ch);
         }
     }
 }

@@ -1,7 +1,8 @@
 // =============================================================================
-// LinuxOSZero — ZeroDesktop (Genesis v1.0.0)
-// Interactive desktop: App Store, working Browser, Discord, Steam, Games,
-// Terminal, File Manager (Рабочая Самка), Editor, Internet settings, 3D demo.
+// LinuxOSZero — ZeroDesktop (Titan v1.1.0 x86_64)
+// Interactive desktop: Display & Screen Settings, Hardware Driver Installer,
+// App Store, working Browser, Discord, Steam, Games, Terminal,
+// File Manager, Editor, Network settings, 3D demo.
 // =============================================================================
 
 const $ = id => document.getElementById(id);
@@ -14,6 +15,8 @@ let zIndexCount = 100, windows = {}, nextWinId = 1;
 let bootMode = 'live', grubIndex = 0;
 let currentUser = localStorage.getItem('zero-user') || 'user';
 let online = true;
+let currentRes = localStorage.getItem('zero-res') || '1024x768';
+let currentScale = localStorage.getItem('zero-scale') || '100';
 
 function getUsername() { return currentUser; }
 function getUserInitials() { return (currentUser[0] || 'U').toUpperCase(); }
@@ -70,28 +73,42 @@ setInterval(updateClock,1000); updateClock();
 // Theme
 function applyTheme(t){ document.body.setAttribute('data-theme',t); localStorage.setItem('zero-theme',t); }
 
+// Resolution & Screen scaling
+function applyResolution(res, scale) {
+  currentRes = res;
+  currentScale = scale || currentScale;
+  localStorage.setItem('zero-res', res);
+  localStorage.setItem('zero-scale', currentScale);
+  const badge = $('res-badge');
+  if (badge) badge.textContent = res;
+}
+
 // ---------------------------------------------------------------------------
 // App registry + desktop/menu
 // ---------------------------------------------------------------------------
 const APPS = [
-  { id:'store',      name:'Магазин приложений', icon:'store',       launch:'store' },
-  { id:'browser',    name:'Браузер',            icon:'browser',     launch:'browser' },
-  { id:'discord',    name:'Discord',            icon:'discord',     launch:'discord' },
-  { id:'steam',      name:'Steam',              icon:'steam',       launch:'steam' },
-  { id:'filemanager',name:'Рабочая Самка',      icon:'filemanager', launch:'filemanager' },
-  { id:'terminal',   name:'Терминал',           icon:'terminal',    launch:'terminal' },
-  { id:'editor',     name:'Редактор',           icon:'editor',      launch:'editor' },
-  { id:'internet',   name:'Настройки сети',     icon:'wifi',        launch:'internet' },
-  { id:'gpu',        name:'3D / 2D Драйверы',   icon:'chip',        launch:'gpu' },
-  { id:'games',      name:'Игры',               icon:'gamepad',     launch:'games' },
-  { id:'analytics',  name:'Монитор системы',    icon:'analytics',   launch:'analytics' },
-  { id:'calculator', name:'Калькулятор',        icon:'calculator',  launch:'calculator' },
-  { id:'fetch',      name:'О системе',          icon:'info',        launch:'fetch' },
-  { id:'user',       name:'Пользователь',       icon:'settings',    launch:'user' }
+  { id:'installer',  name:'Установщик ОС',       icon:'installer',   launch:'installer' },
+  { id:'display',    name:'Настройка экрана',    icon:'screen',      launch:'display' },
+  { id:'store',      name:'Магазин приложений',  icon:'store',       launch:'store' },
+  { id:'browser',    name:'Браузер',             icon:'browser',     launch:'browser' },
+  { id:'discord',    name:'Discord',             icon:'discord',     launch:'discord' },
+  { id:'steam',      name:'Steam',               icon:'steam',       launch:'steam' },
+  { id:'filemanager',name:'Файлы',               icon:'filemanager', launch:'filemanager' },
+  { id:'terminal',   name:'Терминал',            icon:'terminal',    launch:'terminal' },
+  { id:'editor',     name:'Редактор',            icon:'editor',      launch:'editor' },
+  { id:'internet',   name:'Настройки сети',      icon:'wifi',        launch:'internet' },
+  { id:'gpu',        name:'3D / 2D Драйверы',    icon:'chip',        launch:'gpu' },
+  { id:'games',      name:'Игры',                icon:'gamepad',     launch:'games' },
+  { id:'analytics',  name:'Монитор системы',     icon:'analytics',   launch:'analytics' },
+  { id:'calculator', name:'Калькулятор',         icon:'calculator',  launch:'calculator' },
+  { id:'fetch',      name:'О системе',           icon:'info',        launch:'fetch' },
+  { id:'user',       name:'Пользователь',        icon:'settings',    launch:'user' }
 ];
 
 function openApp(n){
   switch(n){
+    case 'installer': createInstallerWindow(); break;
+    case 'display': createDisplayWindow(); break;
     case 'store': createStoreWindow(); break;
     case 'browser': createBrowserWindow(); break;
     case 'discord': createDiscordWindow(); break;
@@ -119,6 +136,19 @@ function buildDesktopAndMenu(){
   $('audio-icon').innerHTML = svgIcon('audio',16);
   $('start-search-icon').innerHTML = svgIcon('search',14);
   $('start-user').textContent = currentUser + '@linuxoszero';
+
+  // Add resolution badge to system tray if not present
+  if (!$('res-badge')) {
+    const rBadge = document.createElement('div');
+    rBadge.className = 'tray-badge';
+    rBadge.id = 'res-badge';
+    rBadge.style.cursor = 'pointer';
+    rBadge.style.color = '#38bdf8';
+    rBadge.title = 'Настройка разрешения экрана';
+    rBadge.textContent = currentRes;
+    rBadge.onclick = () => openApp('display');
+    $('system-tray').insertBefore(rBadge, $('hv-badge'));
+  }
 }
 $('start-search').addEventListener('input',e=>{ const q=e.target.value.toLowerCase(); startItems.querySelectorAll('.start-item').forEach(it=>it.style.display=it.textContent.toLowerCase().includes(q)?'':'none'); });
 
@@ -126,9 +156,9 @@ $('start-search').addEventListener('input',e=>{ const q=e.target.value.toLowerCa
 // Boot flow
 // ---------------------------------------------------------------------------
 const GRUB_ITEMS = [
-  { name:'Запустить LinuxOSZero (графический режим)', mode:'live' },
-  { name:'Установить LinuxOSZero (установщик)', mode:'install' },
-  { name:'LinuxOSZero — безопасная графика (VESA)', mode:'safe' },
+  { name:'Запустить LinuxOSZero Titan (графический режим)', mode:'live' },
+  { name:'Установить LinuxOSZero (мастер установки драйверов и ОС)', mode:'install' },
+  { name:'LinuxOSZero — безопасная графика (VESA VBE LFB)', mode:'safe' },
   { name:'LinuxOSZero — консоль восстановления', mode:'rescue' },
   { name:'Перезагрузка', mode:'reboot' }, { name:'Выключение', mode:'poweroff' }
 ];
@@ -148,20 +178,20 @@ function grubBoot(mode){
   bootMode=mode;
   $('grub-screen').classList.add('hidden');
   $('loading-screen').classList.remove('hidden');
-  let p=0; const msgs=['Загрузка ядра…','Инициализация 3D/2D драйверов…','Запуск служб…','Подготовка рабочего стола…'];
+  let p=0; const msgs=['Загрузка 64-битного ядра…','Инициализация драйвера VMSVGA & VMMDev…','Запуск служб и подсистем…','Подготовка рабочего стола Titan…'];
   const t=setInterval(()=>{ p+=8; $('loading-fill').style.width=Math.min(p,100)+'%'; $('loading-text').textContent='Loading LinuxOSZero… '+Math.min(p,100)+'%'; $('loading-sub').textContent=msgs[Math.floor(p/25)%msgs.length]; if(p>=100){clearInterval(t);$('loading-screen').classList.add('hidden');setTimeout(bootSequence,250);} },60);
 }
 const BOOT_LINES=[
-  {text:'BIOS: запуск GRUB2 (LinuxOSZero)',cls:'ok'},
-  {text:'PCI: сканирование шин … устройства найдены',cls:'ok'},
-  {text:'Драйвер 2D: аппаратное ускорение включено',cls:'ok'},
-  {text:'Драйвер 3D: программный растеризатор активен',cls:'ok'},
-  {text:'Дисплей: VMSVGA / std VGA (32-bpp)',cls:'ok'},
-  {text:'Монтирование /proc /sys /dev … готово',cls:'ok'},
-  {text:'Сеть: интерфейс eth0 настроен (DHCP)',cls:'ok'},
-  {text:'Запуск zero-init (PID 1)',cls:'ok'},
-  {text:'Запуск ZeroDesktop …',cls:''},
-  {text:'LinuxOSZero готова.',cls:'ok'}
+  {text:'BIOS: запуск GRUB2 (LinuxOSZero Titan x86_64)',cls:'ok'},
+  {text:'PML4/PDPT: 4-уровневые таблицы страниц Long Mode загружены',cls:'ok'},
+  {text:'PCI: шина сканирована … Oracle VirtualBox VMMDev + VMSVGA найдены',cls:'ok'},
+  {text:'Дисплей: VMSVGA 1024x768x32 Linear Framebuffer активен',cls:'ok'},
+  {text:'Клавиатура: PS/2 i8042 контроллер (Скан-коды Set 1/2 + US/RU)',cls:'ok'},
+  {text:'Монтирование /proc /sys /dev /media/sf_shared … готово',cls:'ok'},
+  {text:'Сеть: интерфейс eth0 Intel 82540EM настроен (DHCP)',cls:'ok'},
+  {text:'Звук: Intel 82801AA AC\'97 инициализирован',cls:'ok'},
+  {text:'Запуск zero-init (PID 1) и ZeroDesktop',cls:'ok'},
+  {text:'LinuxOSZero Titan v1.1.0 готова к работе.',cls:'ok'}
 ];
 function bootSequence(){
   bootScreen.classList.remove('hidden');
@@ -173,7 +203,7 @@ function showLogin(){
   bootScreen.classList.add('boot-done'); loginScreen.classList.remove('hidden');
   applyTheme(localStorage.getItem('zero-theme')||'dark'); $('login-theme').value=document.body.dataset.theme;
   $('login-username').textContent=currentUser; $('login-avatar').textContent=getUserInitials();
-  $('login-status').textContent='● Система готова, интернет подключён';
+  $('login-status').textContent='● Система готова, драйверы VirtualBox активны';
   setTimeout(()=>bootScreen.remove(),600);
 }
 document.addEventListener('keydown',e=>{ if((e.code==='Space'||e.code==='Escape')&&loginScreen.classList.contains('hidden')){ $('grub-screen').classList.add('hidden'); $('loading-screen').classList.add('hidden'); showLogin(); } });
@@ -181,13 +211,13 @@ $('login-theme').addEventListener('change',e=>applyTheme(e.target.value));
 $('login-btn').addEventListener('click',()=>{ applyTheme($('login-theme').value); loginScreen.classList.add('hidden'); if($('login-session').value==='terminal') showTextSession(); else showDesktop(); });
 $('login-pass').addEventListener('keydown',e=>{ if(e.key==='Enter') $('login-btn').click(); });
 
-function showDesktop(){ osContainer.classList.remove('hidden'); openApp('welcome'); if(bootMode==='install') openApp('store'); else openApp('store'); }
+function showDesktop(){ osContainer.classList.remove('hidden'); openApp('welcome'); if(bootMode==='install') openApp('installer'); else openApp('terminal'); }
 
 // Text session
 function showTextSession(){
   const tty=document.createElement('div'); tty.id='text-session';
   tty.style.cssText='position:fixed;inset:0;z-index:3000;background:#05070d;color:#e2e8f0;font-family:"Courier New",monospace;font-size:14px;line-height:1.5;display:flex;flex-direction:column;padding:14px 18px;';
-  tty.innerHTML=`<div style="color:#38bdf8;font-weight:bold;border-bottom:1px solid #1e293b;padding-bottom:8px;">LinuxOSZero — текстовый режим <span style="color:#22c55e;">TTY</span> (введите 'help')</div><div id="tty-output" style="flex:1;overflow-y:auto;white-space:pre-wrap;margin-top:8px;"></div><div style="display:flex;"><span class="term-prompt">${currentUser}@linuxoszero:~$</span><input id="tty-input" style="flex:1;background:transparent;border:none;outline:none;color:#e2e8f0;font-family:inherit;font-size:14px;caret-color:#38bdf8;" autocomplete="off" spellcheck="false"></div>`;
+  tty.innerHTML=`<div style="color:#38bdf8;font-weight:bold;border-bottom:1px solid #1e293b;padding-bottom:8px;">LinuxOSZero — текстовый режим <span style="color:#22c55e;">TTY</span> (введите 'help' или 'screen')</div><div id="tty-output" style="flex:1;overflow-y:auto;white-space:pre-wrap;margin-top:8px;"></div><div style="display:flex;"><span class="term-prompt">${currentUser}@linuxoszero:~$</span><input id="tty-input" style="flex:1;background:transparent;border:none;outline:none;color:#e2e8f0;font-family:inherit;font-size:14px;caret-color:#38bdf8;" autocomplete="off" spellcheck="false"></div>`;
   document.body.appendChild(tty);
   const out=$('tty-output'); out.innerHTML=''; const input=$('tty-input'); setTimeout(()=>input.focus(),60);
   input.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const v=input.value; out.insertAdjacentHTML('beforeend',`<span class="term-prompt">${currentUser}@linuxoszero:~$</span> `+v.replace(/</g,'&lt;')+'\n'); runTermCommand(v,out); out.scrollTop=out.scrollHeight; input.value=''; } });
@@ -214,7 +244,9 @@ function runTermCommand(cmd,out){
   <b>free</b>            - Использование оперативной памяти (RAM)
   <b>ps</b>              - Список активных процессов
   <b>clear</b>           - Очистить экран терминала
-<span style="color:#22c55e;font-weight:bold;">[ДРАЙВЕРЫ И ОБОРУДОВАНИЕ]</span>
+<span style="color:#22c55e;font-weight:bold;">[НАСТРОЙКА ЭКРАНА И ДРАЙВЕРЫ]</span>
+  <b>screen / display</b> - <span style="color:#38bdf8;">Настройка разрешения экрана и видеорежимов</span>
+  <b>screen &lt;1280x720|1920x1080|1024x768|auto&gt;</b> - Изменить разрешение экрана
   <b>driver-install</b>   - <span style="color:#22c55e;">Автоматический интерактивный установщик драйверов</span> (/install)
   <b>vbox</b>             - Диагностика VirtualBox VMMDev и VMSVGA
   <b>pci</b>              - Сканирование и список устройств на шине PCI
@@ -238,7 +270,38 @@ function runTermCommand(cmd,out){
   <b>logout</b>           - Завершить сеанс пользователя
 `);
       break;
-    case 'driver-install': case 'install': case 'install-drivers':
+    case 'screen': case 'display': case 'resolution': case 'res': case 'set-res':
+      if(args.length === 0){
+        res=termLine(`
+<span class="term-prompt" style="font-weight:bold;">================== Настройки Экрана и Дисплея ==================</span>
+Текущее разрешение: <b>${currentRes}</b> (32 bpp, Scanline Pitch: 4096 байт)
+Адрес Framebuffer : 0xE0000000 | 3D VMSVGA: <span style="color:#22c55e;">Активно (VirtualBox)</span>
+
+<span style="color:#eab308;font-weight:bold;">Поддерживаемые режимы экрана:</span>
+  1. <b>screen 1024x768</b>   - 1024 x 768  (4:3  Стандарт VirtualBox)
+  2. <b>screen 1280x720</b>   - 1280 x 720  (16:9 HD 720p)
+  3. <b>screen 1280x800</b>   - 1280 x 800  (16:10 WXGA)
+  4. <b>screen 1280x1024</b>  - 1280 x 1024 (5:4  SXGA)
+  5. <b>screen 1440x900</b>   - 1440 x 900  (16:10 WXGA+)
+  6. <b>screen 1600x900</b>   - 1600 x 900  (16:9 HD+)
+  7. <b>screen 1920x1080</b>  - 1920 x 1080 (16:9 Full HD 1080p)
+  8. <b>screen 800x600</b>    - 800 x 600   (4:3  SVGA)
+  9. <b>screen auto</b>       - Авто-подгонка под размер экрана
+
+<span style="color:#38bdf8;">Пример: введите 'screen 1280x720' или откройте приложение 'Настройка экрана'</span>
+`);
+      } else {
+        const target = args[0].toLowerCase();
+        if(target === 'auto' || target === 'fit'){
+          applyResolution('1024x768');
+          res=termLine('<span style="color:#22c55e;">[✓] Авто-подгонка выполнена: установлено оптимальное разрешение 1024x768 (32 bpp)</span>');
+        } else {
+          applyResolution(target);
+          res=termLine(`<span style="color:#22c55e;">[✓] Разрешение экрана успешно изменено на: <b>${target}</b> (32 bpp)</span>`);
+        }
+      }
+      break;
+    case 'driver-install': case 'install': case 'install-drivers': case 'setup':
       res=termLine(`
 <span class="term-prompt" style="font-weight:bold;">[*] ===========================================================</span>
 <span class="term-prompt" style="font-weight:bold;">[*]     Установщик оборудования LinuxOSZero (Titan Edition)     </span>
@@ -247,7 +310,7 @@ function runTermCommand(cmd,out){
 <span style="color:#22c55e;">[✓] Обнаружен: Oracle VirtualBox VMMDev (0x80EE:0xCAFE, Port 0xD020)</span>
     -> Загрузка Ring-0 драйвера гостевых дополнений... [<span style="color:#22c55e;">OK</span>]
 <span style="color:#22c55e;">[✓] Обнаружен: Oracle VirtualBox VMSVGA 3D (0x80EE:0xBEEF)</span>
-    -> Настройка 1024x768x32 3D Linear Framebuffer... [<span style="color:#22c55e;">OK</span>]
+    -> Настройка ${currentRes} 3D Linear Framebuffer... [<span style="color:#22c55e;">OK</span>]
 <span style="color:#22c55e;">[✓] Обнаружен: Intel 82540EM Gigabit Ethernet (0x8086:0x100E)</span>
     -> Инициализация сети NAT / DHCP... [<span style="color:#22c55e;">OK</span>]
 <span style="color:#22c55e;">[✓] Обнаружен: Intel 82801AA AC'97 Audio Controller (0x8086:0x2415)</span>
@@ -264,7 +327,7 @@ function runTermCommand(cmd,out){
       res=termLine(`
 <span class="term-prompt" style="font-weight:bold;">[*] Диагностика гипервизора Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)</span>
 <span style="color:#22c55e;">[OK] VMMDev Channel (PCI 0x80EE:0xCAFE, Port 0xD020): ПОДКЛЮЧЁН</span>
-<span style="color:#22c55e;">[OK] VMSVGA Display: 1024x768x32 с аппаратным 3D-ускорением (DisplayWrap Fixed)</span>
+<span style="color:#22c55e;">[OK] VMSVGA Display: ${currentRes} с аппаратным 3D-ускорением (DisplayWrap Fixed)</span>
 <span style="color:#22c55e;">[OK] Guru Meditation 1155 (Triple Fault): УСТРАНЁН (Стек в Extended RAM 0x200000)</span>
 <span style="color:#22c55e;">[OK] Драйвер клавиатуры PS/2: АКТИВЕН (Скан-коды Set 1/2 + переключение раскладки)</span>
 <span style="color:#22c55e;">[OK] Интеграция указателя мыши (USB Tablet): АКТИВНА</span>
@@ -289,9 +352,10 @@ function runTermCommand(cmd,out){
     case 'video':
       res=termLine(`
 <span class="term-prompt">Видеоподсистема:</span> InnoTek/VirtualBox VMSVGA (0x80EE:0xBEEF)
-  Разрешение: 1024 x 768 @ 32 bpp (Linear Framebuffer 0xE0000000)
+  Разрешение: ${currentRes} @ 32 bpp (Linear Framebuffer 0xE0000000)
   Pitch     : 4096 байт на строку
   Статус    : Аппаратное 2D/3D ускорение активно
+  Настройка : введите 'screen' для выбора разрешения
 `);
       break;
     case 'audio':
@@ -313,6 +377,7 @@ function runTermCommand(cmd,out){
   zero-kernel-titan-x86_64       [<span style="color:#22c55e;">установлен</span>]
   zero-desktop-wm-1.1.0          [<span style="color:#22c55e;">установлен</span>]
   vbox-guest-additions-7.2.4     [<span style="color:#22c55e;">установлен</span>]
+  zero-display-config-1.1.0      [<span style="color:#22c55e;">установлен</span>]
   zero-apps-suite-titan          [<span style="color:#22c55e;">установлен</span>]
   ps2-evdev-keyboard-drivers     [<span style="color:#22c55e;">установлен</span>]
 `);
@@ -341,14 +406,14 @@ function runTermCommand(cmd,out){
 <span style="color:#38bdf8;"> | () () |     </span><b>ОС</b>     : LinuxOSZero 1.1.0 (Titan Edition) x86_64
 <span style="color:#38bdf8;">  \\  _  /      </span><b>Хост</b>   : Oracle VM VirtualBox 7.2.4
 <span style="color:#38bdf8;">   '---'       </span><b>Ядро</b>   : 6.1.0-zero-titan x86_64 Long Mode
-               <b>Дисплей</b>: VMSVGA 1024x768 @ 32 bpp (LFB 0xE0000000)
+               <b>Дисплей</b>: VMSVGA ${currentRes} @ 32 bpp (LFB 0xE0000000)
                <b>ОЗУ</b>    : 245 МБ / 2048 МБ
                <b>Драйверы</b>: VMMDev, VMSVGA, AC97, E1000, PS/2 [<span style="color:#22c55e;">АКТИВНЫ</span>]
 `);
       break;
     case 'whoami': res=termLine('user (UID 1000, GID 1000, Группы: wheel, video, audio, vboxsf, sudo)'); break;
     case 'date': res=termLine(new Date().toUTCString()); break;
-    case 'uptime': res=termLine('up 1 hour, 48 mins, 1 user, load average: 0.02, 0.01, 0.00'); break;
+    case 'uptime': res=termLine('up 2 hours, 10 mins, 1 user, load average: 0.02, 0.01, 0.00'); break;
     case 'free':
       res=termLine(`
                total        used        free      shared  buff/cache   available
@@ -370,7 +435,6 @@ Swap:              0           0           0
         const expr = args.join(' ');
         if (!expr) { res=termLine('Использование: calc &lt;выражение&gt; (например: calc 42 * 2 + 10)'); }
         else {
-          // Safe integer/float eval
           const sanitized = expr.replace(/[^0-9+\-*/(). %]/g, '');
           const val = Function('"use strict";return (' + sanitized + ')')();
           res=termLine(`= <span style="color:#22c55e;font-weight:bold;">${val}</span>`);
@@ -402,11 +466,261 @@ function createTerminalWindow(){
   const html=`<div class="term-window"><div class="term-output" id="${id}"></div><div class="term-input-row"><span class="term-prompt">${currentUser}@linuxoszero:~$</span><input class="term-input" id="${id}-in" autocomplete="off" spellcheck="false" placeholder="help"></div></div>`;
   createWindow('Терминал','terminal',680,420,html,{contentId:id});
   const outEl=document.getElementById(id);
-  outEl.innerHTML='<div class="dim">LinuxOSZero Терминал — настоящая оболочка. Попробуйте: touch, mkdir, echo, cat, edit</div><br>';
+  outEl.innerHTML='<div class="dim">LinuxOSZero Терминал — настоящая оболочка. Введите "help", "screen" или "driver-install"</div><br>';
   const inputEl=document.getElementById(id+'-in');
   setTimeout(()=>inputEl.focus(),60);
   inputEl.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const v=inputEl.value; outEl.insertAdjacentHTML('beforeend',`<div><span class="term-prompt">${currentUser}@linuxoszero:~$</span> ${v.replace(/</g,'&lt;')}</div>`); runTermCommand(v,outEl); outEl.scrollTop=outEl.scrollHeight; inputEl.value=''; } });
   outEl.addEventListener('click',()=>inputEl.focus());
+}
+
+// ---------------------------------------------------------------------------
+// DISPLAY & SCREEN SETTINGS APP
+// ---------------------------------------------------------------------------
+const SCREEN_RESOLUTIONS = [
+  { res: '1024x768',  name: '1024 x 768',  aspect: '4:3',   desc: 'Стандарт VirtualBox (XGA)' },
+  { res: '1280x720',  name: '1280 x 720',  aspect: '16:9',  desc: 'HD 720p широкоформатный' },
+  { res: '1280x800',  name: '1280 x 800',  aspect: '16:10', desc: 'WXGA для ноутбуков' },
+  { res: '1280x1024', name: '1280 x 1024', aspect: '5:4',   desc: 'SXGA мониторы' },
+  { res: '1440x900',  name: '1440 x 900',  aspect: '16:10', desc: 'WXGA+ широкоформатный' },
+  { res: '1600x900',  name: '1600 x 900',  aspect: '16:9',  desc: 'HD+ мониторы' },
+  { res: '1920x1080', name: '1920 x 1080', aspect: '16:9',  desc: 'Full HD 1080p' },
+  { res: '800x600',   name: '800 x 600',   aspect: '4:3',   desc: 'SVGA базовый' }
+];
+
+function createDisplayWindow(){
+  const id='disp-'+nextWinId;
+  const renderResCards = () => {
+    return SCREEN_RESOLUTIONS.map(r => `
+      <div class="card disp-res-card ${r.res === currentRes ? 'active-res' : ''}" data-res="${r.res}" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border:1px solid ${r.res === currentRes ? 'var(--accent)' : 'var(--border)'};background:${r.res === currentRes ? 'rgba(56,189,248,0.12)' : 'var(--card-bg)'};border-radius:6px;margin-bottom:8px;">
+        <div>
+          <div style="font-weight:bold;color:${r.res === currentRes ? 'var(--accent)' : 'var(--text)'}">${r.name} <span class="dim" style="font-size:12px;">(${r.aspect})</span></div>
+          <div class="dim" style="font-size:12px;margin-top:2px;">${r.desc}</div>
+        </div>
+        <div>
+          <button class="btn-${r.res === currentRes ? 'primary' : 'secondary'} disp-choose-btn" data-res="${r.res}">${r.res === currentRes ? 'Активно ✓' : 'Выбрать'}</button>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  const html = `
+    <div style="display:flex;flex-direction:column;gap:14px;height:100%;overflow-y:auto;padding:4px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="color:var(--accent);margin:0;">Настройка Экрана и Разрешения</h3>
+        <span class="dim" style="font-size:12px;">Драйвер: VMSVGA (VirtualBox)</span>
+      </div>
+
+      <!-- Current Mode Info Card -->
+      <div class="card" style="background:#0f172a;border:1px solid #334155;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-size:12px;color:#94a3b8;">Текущий видеорежим:</div>
+            <div style="font-size:18px;font-weight:bold;color:#38bdf8;" id="${id}-cur-label">${currentRes} @ 32 bpp</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px;color:#22c55e;">✔ 3D Ускорение активно</div>
+            <div style="font-size:12px;color:#94a3b8;">VRAM: 128 МБ</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resolution List -->
+      <div style="font-weight:bold;color:var(--text);font-size:13px;">Выберите разрешение экрана:</div>
+      <div id="${id}-res-list">${renderResCards()}</div>
+
+      <!-- Advanced Display Options -->
+      <div class="card">
+        <div style="font-weight:bold;color:var(--text);margin-bottom:10px;">Масштабирование и подгонка</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;">
+          <label style="font-size:13px;color:var(--text);">Масштаб интерфейса:</label>
+          <select class="field-input" id="${id}-scale" style="width:140px;">
+            <option value="100" ${currentScale==='100'?'selected':''}>100% (Обычный)</option>
+            <option value="125" ${currentScale==='125'?'selected':''}>125%</option>
+            <option value="150" ${currentScale==='150'?'selected':''}>150% (Крупный)</option>
+            <option value="200" ${currentScale==='200'?'selected':''}>200% (HiDPI)</option>
+          </select>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label style="font-size:13px;color:var(--text);">Режим подгонки:</label>
+          <button class="btn-secondary" id="${id}-autofit">Авто-подгонка под размер окна</button>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:8px;">
+        <span id="${id}-status" style="color:var(--success);font-size:13px;"></span>
+        <button class="btn-primary" id="${id}-apply-btn">Применить настройки</button>
+      </div>
+    </div>
+  `;
+
+  createWindow('Настройка экрана','screen',620,520,html);
+  const content = windows[Object.keys(windows).pop()].elem;
+
+  const wireResButtons = () => {
+    content.querySelectorAll('.disp-choose-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetRes = btn.dataset.res;
+        applyResolution(targetRes);
+        content.querySelector('#' + id + '-res-list').innerHTML = renderResCards();
+        content.querySelector('#' + id + '-cur-label').textContent = targetRes + ' @ 32 bpp';
+        const st = content.querySelector('#' + id + '-status');
+        st.textContent = '✓ Разрешение ' + targetRes + ' успешно применено!';
+        wireResButtons();
+      });
+    });
+  };
+  wireResButtons();
+
+  content.querySelector('#' + id + '-autofit').addEventListener('click', () => {
+    applyResolution('1024x768');
+    content.querySelector('#' + id + '-res-list').innerHTML = renderResCards();
+    content.querySelector('#' + id + '-cur-label').textContent = '1024x768 @ 32 bpp';
+    content.querySelector('#' + id + '-status').textContent = '✓ Авто-подгонка 1024x768 выполнена!';
+    wireResButtons();
+  });
+
+  content.querySelector('#' + id + '-apply-btn').addEventListener('click', () => {
+    const sc = content.querySelector('#' + id + '-scale').value;
+    applyResolution(currentRes, sc);
+    content.querySelector('#' + id + '-status').textContent = '✓ Настройки экрана сохранены и активны!';
+    setTimeout(() => {
+      const st = content.querySelector('#' + id + '-status');
+      if (st) st.textContent = '';
+    }, 3000);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// HARDWARE DRIVER & OS INSTALLER APP
+// ---------------------------------------------------------------------------
+function createInstallerWindow(){
+  let step = 1;
+  const id = 'inst-' + nextWinId;
+
+  const renderStep = () => {
+    if (step === 1) {
+      return `
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <h3 style="color:var(--accent);margin:0;">Мастер установки оборудования и LinuxOSZero</h3>
+          <p class="dim" style="font-size:13px;line-height:1.6;">Данный мастер проверит драйверы VirtualBox и настроит систему Titan v1.1.0.</p>
+          <div class="card">
+            <strong style="color:var(--text);">Проверка аппаратных компонентов:</strong>
+            <div style="color:var(--success);margin-top:8px;">✔ VirtualBox VMMDev (0x80EE:0xCAFE) — подключён</div>
+            <div style="color:var(--success);margin-top:4px;">✔ VMSVGA 3D Графика (0x80EE:0xBEEF) — 1024x768x32</div>
+            <div style="color:var(--success);margin-top:4px;">✔ Клавиатура PS/2 i8042 (Set 1/2 + US/RU) — готова</div>
+            <div style="color:var(--success);margin-top:4px;">✔ Сетевой адаптер Intel 82540EM — активен</div>
+            <div style="color:var(--success);margin-top:4px;">✔ Звук Intel AC'97 (Host Audio) — разглушен</div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px;">
+            <button class="btn-primary" id="${id}-next-1">Далее ></button>
+          </div>
+        </div>
+      `;
+    } else if (step === 2) {
+      return `
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <h3 style="color:var(--accent);margin:0;">Выбор диска для установки</h3>
+          <p class="dim" style="font-size:13px;">Автоматическая разметка дискового пространства:</p>
+          <div class="card" style="border:1px solid var(--accent);background:rgba(56,189,248,0.08);">
+            <div style="font-weight:bold;color:var(--accent);">/dev/sda — 20.0 GB (VirtualBox VDI HardDisk)</div>
+            <div class="dim" style="font-size:12px;margin-top:4px;">Разделы: /dev/sda1 (512MB EFI/Boot) + /dev/sda2 (19.5GB ext4 Root)</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:12px;">
+            <button class="btn-secondary" id="${id}-back-2">< Назад</button>
+            <button class="btn-primary" id="${id}-next-2">Установить сейчас >></button>
+          </div>
+        </div>
+      `;
+    } else if (step === 3) {
+      return `
+        <div style="display:flex;flex-direction:column;gap:14px;">
+          <h3 style="color:var(--accent);margin:0;">Установка драйверов и системы...</h3>
+          <p class="dim" style="font-size:13px;" id="${id}-progress-text">Инициализация процесса установки...</p>
+          <div class="bar-bg" style="height:16px;border-radius:8px;">
+            <div class="bar-fill" id="${id}-pbar" style="width:0%;height:100%;border-radius:8px;background:linear-gradient(90deg, #38bdf8, #22c55e);transition:width 0.3s;"></div>
+          </div>
+          <div class="card" id="${id}-log" style="font-family:monospace;font-size:12px;height:120px;overflow-y:auto;background:#05070d;color:#94a3b8;">
+            <div>[+] Создание GPT таблицы разделов...</div>
+          </div>
+        </div>
+      `;
+    } else {
+      return `
+        <div style="display:flex;flex-direction:column;gap:14px;text-align:center;align-items:center;">
+          <div style="font-size:36px;color:#22c55e;margin-top:10px;">✔</div>
+          <h3 style="color:#22c55e;margin:0;">Установка успешно завершена!</h3>
+          <p class="dim" style="font-size:13px;max-width:440px;">Все аппаратные драйверы VirtualBox и операционная система LinuxOSZero Titan v1.1.0 установлены и готовы к работе.</p>
+          <button class="btn-primary" id="${id}-finish-btn" style="margin-top:16px;">Готово</button>
+        </div>
+      `;
+    }
+  };
+
+  createWindow('Установщик ОС и драйверов','installer',580,420,'<div id="' + id + '-body">' + renderStep() + '</div>');
+  const content = windows[Object.keys(windows).pop()].elem;
+
+  const wireSteps = () => {
+    const next1 = content.querySelector('#' + id + '-next-1');
+    if (next1) next1.onclick = () => { step = 2; updateView(); };
+
+    const back2 = content.querySelector('#' + id + '-back-2');
+    if (back2) back2.onclick = () => { step = 1; updateView(); };
+
+    const next2 = content.querySelector('#' + id + '-next-2');
+    if (next2) next2.onclick = () => {
+      step = 3;
+      updateView();
+      runInstallSim();
+    };
+
+    const fin = content.querySelector('#' + id + '-finish-btn');
+    if (fin) fin.onclick = () => { closeWin(Object.keys(windows).pop()); };
+  };
+
+  const updateView = () => {
+    const body = content.querySelector('#' + id + '-body');
+    if (body) {
+      body.innerHTML = renderStep();
+      wireSteps();
+    }
+  };
+
+  const runInstallSim = () => {
+    let pct = 0;
+    const logEl = content.querySelector('#' + id + '-log');
+    const pbar = content.querySelector('#' + id + '-pbar');
+    const txt = content.querySelector('#' + id + '-progress-text');
+    const msgs = [
+      '[+] Форматирование ext4 корневой файловой системы...',
+      '[+] Установка 64-битного ядра LinuxOSZero Titan...',
+      '[+] Установка Ring-0 драйвера VMMDev...',
+      '[+] Настройка видеорежима VMSVGA 3D LFB...',
+      '[+] Настройка драйвера клавиатуры PS/2 evdev...',
+      '[+] Настройка сети Intel E1000 Gigabit...',
+      '[+] Настройка звука Intel AC97 HostAudio...',
+      '[+] Генерация GRUB2 конфигурации...',
+      '[+] Финализация установки...'
+    ];
+    const timer = setInterval(() => {
+      pct += 12;
+      if (pbar) pbar.style.width = Math.min(pct, 100) + '%';
+      const msgIdx = Math.floor((pct / 100) * msgs.length);
+      if (txt && msgs[msgIdx]) txt.textContent = msgs[msgIdx];
+      if (logEl && msgs[msgIdx]) {
+        logEl.insertAdjacentHTML('beforeend', '<div>' + msgs[msgIdx] + '</div>');
+        logEl.scrollTop = logEl.scrollHeight;
+      }
+      if (pct >= 100) {
+        clearInterval(timer);
+        setTimeout(() => {
+          step = 4;
+          updateView();
+        }, 400);
+      }
+    }, 250);
+  };
+
+  wireSteps();
 }
 
 // ---------------------------------------------------------------------------
@@ -423,10 +737,10 @@ const STORE_CATALOG = [
   { name:'VLC',           cat:'Мультимедиа',   icon:'play',     desc:'Видеоплеер', size:'48 МБ' },
   { name:'Муз. плеер',    cat:'Мультимедиа',   icon:'music',    desc:'Слушать музыку', size:'9 МБ' },
   { name:'Terminal',      cat:'Утилиты',       icon:'terminal', desc:'Командная строка', size:'4 МБ' },
-  { name:'Рабочая Самка', cat:'Утилиты',       icon:'filemanager', desc:'Файловый менеджер', size:'6 МБ' },
+  { name:'Файлы',         cat:'Утилиты',       icon:'filemanager', desc:'Файловый менеджер', size:'6 МБ' },
   { name:'GIMP',          cat:'Графика',       icon:'paint',    desc:'Редактор изображений', size:'140 МБ' }
 ];
-const installedApps = JSON.parse(localStorage.getItem('zero-installed')||'["terminal","filemanager","analytics","calculator","editor","fetch"]');
+const installedApps = JSON.parse(localStorage.getItem('zero-installed')||'["terminal","filemanager","analytics","calculator","editor","fetch","display","installer"]');
 
 function createStoreWindow(){
   const cat='all';
@@ -456,7 +770,7 @@ function wireStoreBtns(list){
   list.querySelectorAll('.store-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       const name=btn.dataset.name;
-      if(installedApps.includes(name)){ const map={Firefox:'browser',Chromium:'browser',Discord:'discord',Steam:'steam','Змейка':'games',Понг:'games',Terminal:'terminal','Рабочая Самка':'filemanager'}; openApp(map[name]||'store'); }
+      if(installedApps.includes(name)){ const map={Firefox:'browser',Chromium:'browser',Discord:'discord',Steam:'steam','Змейка':'games',Понг:'games',Terminal:'terminal','Файлы':'filemanager'}; openApp(map[name]||'store'); }
       else { installedApps.push(name); localStorage.setItem('zero-installed',JSON.stringify(installedApps)); btn.textContent='Запустить'; btn.classList.add('installed'); }
     });
   });
@@ -567,7 +881,6 @@ function createSnakeGame(){
   const key=e=>{ if(e.key==='ArrowUp'&&dir!=='down')dir='up'; else if(e.key==='ArrowDown'&&dir!=='up')dir='down'; else if(e.key==='ArrowLeft'&&dir!=='right')dir='left'; else if(e.key==='ArrowRight'&&dir!=='left')dir='right'; };
   document.addEventListener('keydown',key);
   render(); const t=setInterval(step,140);
-  const orig=closeWin; // game continues in background; ok
 }
 
 function createPongGame(){
@@ -619,7 +932,6 @@ function createGpuWindow(){
   const content=windows[Object.keys(windows).pop()].elem;
   const c=content.querySelector('#gpu-'+(parseInt(id.split('-')[1]))+'-c')||content.querySelector('.gpu-canvas');
   const ctx=c.getContext('2d');
-  // 3D rotating cube (software projection)
   const pts=[]; for(let x=-1;x<=1;x+=2)for(let y=-1;y<=1;y+=2)for(let z=-1;z<=1;z+=2) pts.push([x,y,z]);
   const edges=[[0,1],[0,2],[1,3],[2,3],[4,5],[4,6],[5,7],[6,7],[0,4],[1,5],[2,6],[3,7]];
   let a=0;
@@ -629,13 +941,12 @@ function createGpuWindow(){
     ctx.strokeStyle='#38bdf8'; ctx.lineWidth=2;
     edges.forEach(e=>{ ctx.beginPath(); ctx.moveTo(pr[e[0]][0],pr[e[0]][1]); ctx.lineTo(pr[e[1]][0],pr[e[1]][1]); ctx.stroke(); });
   },30);
-  // 2D gradients
   const g2=content.querySelectorAll('.gpu-canvas')[1]; const cg=g2.getContext('2d');
   const gr=cg.createLinearGradient(0,0,360,0); gr.addColorStop(0,'#0ea5e9'); gr.addColorStop(1,'#8b5cf6'); cg.fillStyle=gr; cg.fillRect(0,0,360,120);
 }
 
 // ---------------------------------------------------------------------------
-// FILE MANAGER (Рабочая Самка) — create files/folders
+// FILE MANAGER — create files/folders
 // ---------------------------------------------------------------------------
 function createFileManagerWindow(){
   const id='fm-'+nextWinId;
@@ -647,7 +958,7 @@ function createFileManagerWindow(){
       <button class="btn-secondary" onclick="fmNewFolder()">Папка</button>
     </div>
     <div id="${id}-list" style="flex:1;overflow:auto;"></div></div>`;
-  createWindow('Рабочая Самка','filemanager',660,440,html,{contentId:id+'-list'});
+  createWindow('Файлы','filemanager',660,440,html,{contentId:id+'-list'});
   const content=windows[Object.keys(windows).pop()].elem;
   const list=content.querySelector('#'+id+'-list'); const loc=content.querySelector('.fm-loc');
   let cur=ZERO_FS.home();
@@ -669,7 +980,7 @@ function createFileManagerWindow(){
 // EDITOR (save to VFS)
 // ---------------------------------------------------------------------------
 function createEditorWindow(initialText, filePath){
-  const content = initialText || '#include <stdio.h>\nint main(){ printf("Привет из LinuxOSZero!\\n"); return 0; }\n';
+  const content = initialText || '#include <stdio.h>\nint main() {\n    printf("Привет из LinuxOSZero Titan!\\n");\n    return 0;\n}\n';
   const path = filePath || ZERO_FS.home()+'/новый-файл.c';
   const html=`<div style="display:flex;flex-direction:column;height:100%;">
     <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
@@ -705,9 +1016,9 @@ function createFetchWindow(){
     <div style="font-size:13px;line-height:1.8;">
       <div style="color:var(--accent);font-weight:bold">${currentUser}@linuxoszero</div>
       <div class="dim">----------------------------</div>
-      <div><strong>ОС</strong>: LinuxOSZero 1.0.0 (Genesis)</div>
-      <div><strong>Ядро</strong>: 6.1.0-zero-x86_64</div>
-      <div><strong>Видео</strong>: VMSVGA 3D/2D</div>
+      <div><strong>ОС</strong>: LinuxOSZero 1.1.0 (Titan Edition) x86_64</div>
+      <div><strong>Ядро</strong>: 6.1.0-zero-titan x86_64</div>
+      <div><strong>Видео</strong>: VMSVGA 3D (${currentRes})</div>
       <div><strong>Интернет</strong>: <span style="color:var(--success)">подключён</span></div>
       <div><strong>Память</strong>: 2.1 GB / 4 GB</div>
     </div></div>`;
@@ -716,14 +1027,15 @@ function createFetchWindow(){
 function createWelcomeWindow(){
   const html=`<div style="display:flex;flex-direction:column;align-items:center;text-align:center;padding:12px;">
     <img src="img/logo.png" style="width:70px;height:70px;border-radius:16px;box-shadow:0 8px 24px var(--accent-glow);margin-bottom:12px" alt="">
-    <h3>Добро пожаловать в LinuxOSZero</h3>
-    <p class="dim" style="margin-top:6px;font-size:13px;">Полный рабочий стол: магазин приложений, браузер, Discord, Steam, игры, файлы, интернет.</p>
-    <div style="display:flex;gap:10px;margin-top:18px;">
-      <button class="btn-primary" onclick="openApp('store')">Открыть магазин</button>
-      <button class="btn-secondary" onclick="openApp('browser')">Браузер</button>
-      <button class="btn-secondary" onclick="openApp('games')">Игры</button>
+    <h3>Добро пожаловать в LinuxOSZero Titan</h3>
+    <p class="dim" style="margin-top:6px;font-size:13px;">Полноценный рабочий стол: настройка экрана, установщик драйверов, магазин, браузер, терминал, игры.</p>
+    <div style="display:flex;gap:10px;margin-top:18px;flex-wrap:wrap;justify-content:center;">
+      <button class="btn-primary" onclick="openApp('display')">Настройка экрана</button>
+      <button class="btn-primary" onclick="openApp('installer')">Установщик драйверов</button>
+      <button class="btn-secondary" onclick="openApp('terminal')">Терминал</button>
+      <button class="btn-secondary" onclick="openApp('store')">Магазин</button>
     </div></div>`;
-  createWindow('Добро пожаловать','info',520,300,html);
+  createWindow('Добро пожаловать','info',540,320,html);
 }
 function createAnalyticsWindow(){
   const html=`<div style="display:flex;flex-direction:column;gap:14px;">
@@ -731,7 +1043,7 @@ function createAnalyticsWindow(){
     <div class="card"><strong>ЦП (4 ядра)</strong><div class="bar-bg"><div class="bar-fill bar-cpu" style="width:58%"></div></div></div>
     <div class="card"><strong>Память — 2.1 / 4 GB</strong><div class="bar-bg"><div class="bar-fill bar-mem" style="width:53%"></div></div></div>
     <div class="card"><strong>Сеть — онлайн</strong><div class="mon-row"><span>⬇ 12.4 MB/s</span><span>⬆ 2.1 MB/s</span></div></div>
-    <div class="card"><strong>Графика 3D</strong><div class="bar-bg"><div class="bar-fill bar-disk" style="width:42%"></div></div></div></div>`;
+    <div class="card"><strong>Графика 3D (VMSVGA)</strong><div class="bar-bg"><div class="bar-fill bar-disk" style="width:42%"></div></div></div></div>`;
   createWindow('Монитор системы','analytics',460,400,html);
   const content=windows[Object.keys(windows).pop()].elem;
   setInterval(()=>{ const c=content.querySelector('.bar-cpu'); if(c)c.style.width=(30+Math.round(Math.random()*60))+'%'; },900);

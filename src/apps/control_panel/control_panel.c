@@ -20,13 +20,17 @@ static int active_tab = 0; /* 0: Display, 1: VirtualBox, 2: System, 3: Themes */
 static int selected_res_idx = 0;
 
 static const char *resolutions[] = {
-    "1024 x 768  (4:3 Standard)",
-    "1280 x 720  (16:9 HD)",
+    "1024 x 768  (4:3 Standard VirtualBox)",
+    "1280 x 720  (16:9 HD 720p)",
     "1280 x 800  (16:10 WXGA)",
+    "1280 x 1024 (5:4 SXGA)",
     "1440 x 900  (16:10 WXGA+)",
     "1600 x 900  (16:9 HD+)",
-    "1920 x 1080 (16:9 Full HD)"
+    "1920 x 1080 (16:9 Full HD 1080p)",
+    "800 x 600   (4:3 SVGA)"
 };
+static const uint32_t res_widths[]  = { 1024, 1280, 1280, 1280, 1440, 1600, 1920, 800 };
+static const uint32_t res_heights[] = {  768,  720,  800, 1024,  900,  900, 1080, 600 };
 #define RES_COUNT (sizeof(resolutions) / sizeof(resolutions[0]))
 
 void app_launch_control_panel(void) {
@@ -34,7 +38,7 @@ void app_launch_control_panel(void) {
         wm_focus_window(cp_win->id);
         return;
     }
-    cp_win = wm_create_window("Control Panel & System Settings (x86_64)", ICON_CONTROL_PANEL, 140, 70, 600, 430, control_panel_render, control_panel_on_event);
+    cp_win = wm_create_window("Настройка экрана и параметры (x86_64)", ICON_CONTROL_PANEL, 140, 60, 620, 460, control_panel_render, control_panel_on_event);
 }
 
 void control_panel_render(window_t *win, int cx, int cy, int cw, int ch) {
@@ -42,7 +46,7 @@ void control_panel_render(window_t *win, int cx, int cy, int cw, int ch) {
     fbdev_fill_rect(cx, cy, cw, ch, g_theme.card_bg);
 
     /* Tab Bar at Top */
-    const char *tabs[] = { "Display", "VirtualBox", "System Info", "Appearance" };
+    const char *tabs[] = { "Экран / Display", "VirtualBox", "О системе", "Тема / Вид" };
     int tab_w = cw / 4;
     for (int i = 0; i < 4; i++) {
         int tx = cx + i * tab_w;
@@ -58,67 +62,70 @@ void control_panel_render(window_t *win, int cx, int cy, int cw, int ch) {
         font_draw_string(tx + (tab_w - tw) / 2, cy + 9, tabs[i], tt, COLOR_RGBA(0, 0, 0, 0));
     }
 
-    int my = cy + 48;
-    int mx = cx + 20;
-    int mw = cw - 40;
+    int my = cy + 44;
+    int mx = cx + 18;
+    int mw = cw - 36;
 
     if (active_tab == 0) {
         /* Display Settings Tab */
-        font_draw_string(mx, my, "Display Resolution (VBoxVideo / VMSVGA 64-bit)", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx, my + 20, "Select a virtual display resolution for VirtualBox:", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx, my, "Настройка разрешения экрана (VBoxVideo / VMSVGA 64-bit)", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx, my + 18, "Выберите видеорежим для виртуальной машины VirtualBox:", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
 
-        int list_y = my + 50;
+        int list_y = my + 42;
         for (size_t i = 0; i < RES_COUNT; i++) {
-            int ry = list_y + i * 36;
+            int ry = list_y + i * 32;
+            if (ry + 28 > cy + ch - 48) break;
             bool is_sel = ((int)i == selected_res_idx);
             color_t card_c = is_sel ? g_theme.accent_active : COLOR_RGB(30, 41, 59);
-            canvas_draw_card(mx, ry, mw, 30, card_c, is_sel ? g_theme.accent_hover : g_theme.card_border);
-            font_draw_string(mx + 12, ry + 7, resolutions[i], is_sel ? g_theme.btn_text : g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
+            canvas_draw_card(mx, ry, mw, 28, card_c, is_sel ? g_theme.accent_hover : g_theme.card_border);
+            font_draw_string(mx + 10, ry + 6, resolutions[i], is_sel ? g_theme.btn_text : g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
             if (is_sel) {
-                font_draw_string(mx + mw - 70, ry + 7, "[Active]", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
+                font_draw_string(mx + mw - 75, ry + 6, "[Выбрано]", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
             }
         }
 
-        canvas_draw_button(mx + mw - 140, cy + ch - 44, 140, 32, "Apply Resolution", false, false, g_theme.accent_primary);
+        canvas_draw_button(mx, cy + ch - 42, 140, 30, "Авто-подгонка", false, false, g_theme.btn_bg);
+        canvas_draw_button(mx + mw - 160, cy + ch - 42, 160, 30, "Применить экран", false, false, g_theme.accent_primary);
     } else if (active_tab == 1) {
         /* VirtualBox Integration Tab */
-        font_draw_string(mx, my, "Oracle VM VirtualBox Integration (v1.1.0)", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx, my + 20, "VirtualBox Guest Additions protocol & service configuration:", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx, my, "Интеграция с Oracle VM VirtualBox (v1.1.0)", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx, my + 18, "Состояние драйверов гостевых дополнений VirtualBox:", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
 
-        canvas_draw_card(mx, my + 50, mw, 190, COLOR_RGB(30, 41, 59), g_theme.card_border);
-        font_draw_string(mx + 16, my + 66, "[x] Mouse Pointer Integration (Seamless mode)", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 92, "[x] DisplayWrap -52 Error Fixed (64-bit page table)", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 118, "[x] Keyboard Driver: evdev & PS/2 Set 1/2 decoder", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 144, "[x] Shared Folders Support (/media/sf_shared)", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 170, "[x] Host-to-Guest Time Synchronization (RTC)", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 196, "[x] VMMDev PCI Channel (Port 0xD020, 64-bit)", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
+        canvas_draw_card(mx, my + 42, mw, 210, COLOR_RGB(30, 41, 59), g_theme.card_border);
+        font_draw_string(mx + 16, my + 58, "[✓] Указатель мыши (Seamless Mouse Integration)", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 82, "[✓] Видеоадаптер: VMSVGA 3D (DisplayWrap устранено)", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 106, "[✓] Драйвер клавиатуры: PS/2 Set 1/2 + раскладка US/RU", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 130, "[✓] Общие папки VirtualBox (/media/sf_shared)", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 154, "[✓] Синхронизация времени с хостом (RTC Clock)", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 178, "[✓] Канал VMMDev PCI (Порт 0xD020/0xD040, 64-bit)", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 202, "[✓] Звук WASAPI / Intel AC'97 разглушен", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
 
-        canvas_draw_button(mx + mw - 160, cy + ch - 44, 160, 32, "Restart Guest Agent", false, false, g_theme.btn_bg);
+        canvas_draw_button(mx + mw - 180, cy + ch - 42, 180, 30, "Перезапустить VMMDev", false, false, g_theme.btn_bg);
     } else if (active_tab == 2) {
         /* System Information Tab */
-        font_draw_string(mx, my, "System & Hardware Overview", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx, my, "Сведения о системе и оборудовании", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
 
         canvas_draw_card(mx, my + 36, mw, 230, COLOR_RGB(30, 41, 59), g_theme.card_border);
-        font_draw_string(mx + 16, my + 50, "Operating System : LinuxOSZero v1.1.0 (Titan)", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 74, "Architecture     : x86_64 (64-bit Long Mode)", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 98, "Hypervisor       : Oracle VM VirtualBox", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 122, "Display Adapter  : VirtualBox VMSVGA (BEEF/CAFE)", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 146, "Keyboard Driver  : PS/2 Controller + Linux evdev", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 170, "Network Adapter  : Intel 82540EM Gigabit Ethernet", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 194, "Audio Controller : Intel AC'97 / High Definition Audio", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 16, my + 218, "Package Manager  : zpkg (Zero Package Manager)", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 50, "Операционная система : LinuxOSZero v1.1.0 (Titan)", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 74, "Архитектура          : x86_64 (64-bit Long Mode)", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 98, "Гипервизор           : Oracle VM VirtualBox 7.2.4", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 122, "Видеоадаптер         : VirtualBox VMSVGA (0x80EE:0xBEEF)", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 146, "Клавиатура           : PS/2 контроллер + evdev (RU/US)", g_theme.success, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 170, "Сетевая карта        : Intel 82540EM Gigabit Ethernet", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 194, "Аудиоконтроллер      : Intel 82801AA AC'97 Audio", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 16, my + 218, "Пакетный менеджер    : zpkg (Zero Package Manager)", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
     } else if (active_tab == 3) {
         /* Appearance Tab */
-        font_draw_string(mx, my, "Desktop Theme & Appearance", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx, my + 20, "Customize window borders, color scheme and styling:", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx, my, "Темы оформления рабочего стола", g_theme.text_primary, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx, my + 18, "Настройка цветовой схемы и стиля окон:", g_theme.text_secondary, COLOR_RGBA(0, 0, 0, 0));
 
-        canvas_draw_card(mx, my + 50, mw / 2 - 10, 100, COLOR_RGB(15, 23, 42), g_theme.accent_primary);
-        font_draw_string(mx + 14, my + 70, "Dark Cyber (Active)", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + 14, my + 94, "Cyan accents & slate cards", g_theme.text_muted, COLOR_RGBA(0, 0, 0, 0));
+        canvas_draw_card(mx, my + 44, mw / 2 - 10, 100, COLOR_RGB(15, 23, 42), g_theme.accent_primary);
+        font_draw_string(mx + 14, my + 64, "Dark Cyber (Тёмная)", g_theme.accent_hover, COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + 14, my + 88, "Голубые акценты и тёмные панели", g_theme.text_muted, COLOR_RGBA(0, 0, 0, 0));
 
-        canvas_draw_card(mx + mw / 2 + 10, my + 50, mw / 2 - 10, 100, COLOR_RGB(241, 245, 249), g_theme.card_border);
-        font_draw_string(mx + mw / 2 + 24, my + 70, "Light Clean", COLOR_RGB(15, 23, 42), COLOR_RGBA(0, 0, 0, 0));
-        font_draw_string(mx + mw / 2 + 24, my + 94, "Bright slate & blue accents", COLOR_RGB(100, 116, 139), COLOR_RGBA(0, 0, 0, 0));
+        canvas_draw_card(mx + mw / 2 + 10, my + 44, mw / 2 - 10, 100, COLOR_RGB(241, 245, 249), g_theme.card_border);
+        font_draw_string(mx + mw / 2 + 24, my + 64, "Light Clean (Светлая)", COLOR_RGB(15, 23, 42), COLOR_RGBA(0, 0, 0, 0));
+        font_draw_string(mx + mw / 2 + 24, my + 88, "Светлые панели и синие акценты", COLOR_RGB(100, 116, 139), COLOR_RGBA(0, 0, 0, 0));
     }
 }
 
@@ -138,6 +145,11 @@ void control_panel_on_event(window_t *win, int ev_type, int p1, int p2) {
             } else if (key_code == KEY_DOWN && selected_res_idx < (int)RES_COUNT - 1) {
                 selected_res_idx++;
                 sound_play(SND_CLICK);
+            } else if (key_code == KEY_ENTER) {
+                if (selected_res_idx >= 0 && selected_res_idx < (int)RES_COUNT) {
+                    vboxvideo_set_mode(res_widths[selected_res_idx], res_heights[selected_res_idx], 32);
+                    sound_play(SND_SUCCESS);
+                }
             }
         }
         return;
@@ -154,20 +166,41 @@ void control_panel_on_event(window_t *win, int ev_type, int p1, int p2) {
         return;
     }
 
+    int mx = 18;
+    int mw = win->width - 36;
+    int ch = win->height - 28;
+
     if (active_tab == 0) {
-        /* Resolution selection */
-        int list_y = 98;
+        /* Resolution list selection */
+        int list_y = 86;
         for (size_t i = 0; i < RES_COUNT; i++) {
-            int ry = list_y + i * 36;
-            if (p2 >= ry && p2 < (ry + 30)) {
+            int ry = list_y + i * 32;
+            if (p2 >= ry && p2 < (ry + 28) && p1 >= mx && p1 <= (mx + mw)) {
                 selected_res_idx = (int)i;
                 sound_play(SND_CLICK);
                 return;
             }
         }
+
+        /* Apply Resolution Button */
+        if (p1 >= (mx + mw - 160) && p1 <= (mx + mw) && p2 >= (ch - 42) && p2 <= (ch - 12)) {
+            if (selected_res_idx >= 0 && selected_res_idx < (int)RES_COUNT) {
+                vboxvideo_set_mode(res_widths[selected_res_idx], res_heights[selected_res_idx], 32);
+                sound_play(SND_SUCCESS);
+            }
+            return;
+        }
+
+        /* Auto-fit Button */
+        if (p1 >= mx && p1 <= (mx + 140) && p2 >= (ch - 42) && p2 <= (ch - 12)) {
+            selected_res_idx = 0;
+            vboxvideo_set_mode(1024, 768, 32);
+            sound_play(SND_SUCCESS);
+            return;
+        }
     } else if (active_tab == 3) {
         /* Theme cards click */
-        if (p2 >= 98 && p2 < 198) {
+        if (p2 >= 88 && p2 < 188) {
             if (p1 < win->width / 2) {
                 theme_init_dark();
                 sound_play(SND_SUCCESS);
