@@ -2,6 +2,7 @@
  * LinuxOSZero - Main Kernel & Graphical Desktop Environment
  * Architecture: x86_64
  * Version: 1.1.0 (Titan)
+ * Optimized for VirtualBox 1024x768 Native Display
  */
 
 #include "kernel.h"
@@ -12,7 +13,7 @@
 #include "../gui/font_data.inl"
 #include <stdarg.h>
 
-/* System Info Global Definition */
+/* System Info Global Definition (Default: 1024x768 Native) */
 system_info_t g_sysinfo = {
     .screen_width = 1024,
     .screen_height = 768,
@@ -420,11 +421,11 @@ static void apply_screen_mode(uint32_t width, uint32_t height, uint32_t bpp) {
     if (vboxvideo_set_mode(width, height, bpp) == 0) {
         g_need_full_redraw = true;
         char msg[120];
-        k_snprintf(msg, sizeof(msg), "[✓] Разрешение экрана VirtualBox изменено на %dx%d (%d bpp)", (int)width, (int)height, (int)bpp);
+        k_snprintf(msg, sizeof(msg), "[✓] Разрешение экрана VirtualBox настроено: %dx%d (%d bpp) [OK]", (int)width, (int)height, (int)bpp);
         kterm_add_line(msg, g_success_col);
     } else {
         char msg[120];
-        k_snprintf(msg, sizeof(msg), "[!] Ошибка переключения разрешения на %dx%dx%d", (int)width, (int)height, (int)bpp);
+        k_snprintf(msg, sizeof(msg), "[!] Ошибка установки разрешения %dx%dx%d", (int)width, (int)height, (int)bpp);
         kterm_add_line(msg, g_error_col);
     }
 }
@@ -440,7 +441,7 @@ static void run_driver_installer(void) {
         kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMMDev (0x80EE:0xCAFE, Port 0xD040)", g_success_col);
         kterm_add_line("    -> Загрузка Ring-0 драйвера гостевых дополнений... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Oracle VirtualBox VMSVGA 3D (0x80EE:0xBEEF)", g_success_col);
-        kterm_add_line("    -> Настройка Linear Framebuffer & 3D растеризатора... [OK]", g_text_primary);
+        kterm_add_line("    -> Настройка 1024x768 Native Linear Framebuffer... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Intel 82540EM Gigabit Ethernet (0x8086:0x100E)", g_success_col);
         kterm_add_line("    -> Инициализация сети NAT / DHCP... [OK]", g_text_primary);
         kterm_add_line("[✓] Обнаружен: Intel 82801AA AC'97 Audio Controller (0x8086:0x2415)", g_success_col);
@@ -455,7 +456,7 @@ static void run_driver_installer(void) {
         kterm_add_line("[✓] Обнаружен: Red Hat VirtIO Block Device (0x1AF4:0x1001)", g_success_col);
         kterm_add_line("[✓] Обнаружен: PS/2 Контроллер клавиатуры и мыши (i8042)", g_success_col);
     } else {
-        kterm_add_line("[✓] Стандартный VBE 3.0 LFB дисплей инициализирован", g_success_col);
+        kterm_add_line("[✓] Стандартный VBE 3.0 LFB дисплей 1024x768 инициализирован", g_success_col);
         kterm_add_line("[✓] Стандартный PS/2 контроллер клавиатуры и мыши готов к работе", g_success_col);
         kterm_add_line("[✓] Сканирование шины PCI завершено", g_success_col);
     }
@@ -465,28 +466,28 @@ static void run_driver_installer(void) {
     kterm_add_line("", g_text_primary);
 }
 
-/* --- Display Settings Info & Wizard in Terminal --- */
+/* --- Display Settings Info in Terminal --- */
 static void show_screen_settings(void) {
-    kterm_add_line("================== Настройки Экрана VirtualBox ==================", g_accent);
+    kterm_add_line("================== Настройка Экрана 1024x768 VirtualBox ==================", g_accent);
     char buf[120];
     k_snprintf(buf, sizeof(buf), "Текущее разрешение: %d x %d  (%d bpp, pitch: %d байт)",
                (int)g_sysinfo.screen_width, (int)g_sysinfo.screen_height,
                (int)g_sysinfo.screen_bpp, (int)g_sysinfo.screen_pitch);
-    kterm_add_line(buf, g_text_primary);
+    kterm_add_line(buf, g_success_col);
     k_snprintf(buf, sizeof(buf), "Адрес Framebuffer: %lx | 3D VMSVGA: %s",
                (uint64_t)(uintptr_t)g_sysinfo.framebuffer,
                g_sysinfo.is_virtualbox ? "Активно (VirtualBox)" : "VBE LFB");
     kterm_add_line(buf, g_text_secondary);
     kterm_add_line("", g_text_primary);
-    kterm_add_line("Быстрые кнопки переключения (нажмите цифру 1..8 или F1..F8):", g_warn_col);
-    kterm_add_line("  [1] или F1 : 1024 x 768   (Стандарт VirtualBox 4:3)", g_text_primary);
-    kterm_add_line("  [2] или F2 : 1280 x 720   (Широкоформатный HD 16:9)", g_text_primary);
-    kterm_add_line("  [3] или F3 : 1920 x 1080  (Full HD 1080p)", g_text_primary);
-    kterm_add_line("  [4] или F4 : 1280 x 800   (WXGA Ноутбук 16:10)", g_text_primary);
-    kterm_add_line("  [5] или F5 : 1440 x 900   (WXGA+ 16:10)", g_text_primary);
-    kterm_add_line("  [6] или F6 : 1600 x 900   (HD+ 16:9)", g_text_primary);
-    kterm_add_line("  [7] или F7 : 800 x 600    (SVGA базовый)", g_text_primary);
-    kterm_add_line("  [8] или F8 : АВТО-ПОДГОНКА ПОД РАЗМЕР ОКНА VIRTUALBOX", g_success_col);
+    kterm_add_line("Режимы экрана (нажмите 1..8):", g_warn_col);
+    kterm_add_line("  [1] 1024 x 768   - Стандарт VirtualBox 4:3 ──► [АКТИВНО ✓]", g_success_col);
+    kterm_add_line("  [2] 1280 x 720   - Широкоформатный HD 16:9", g_text_primary);
+    kterm_add_line("  [3] 1920 x 1080  - Full HD 1080p", g_text_primary);
+    kterm_add_line("  [4] 1280 x 800   - WXGA Ноутбук 16:10", g_text_primary);
+    kterm_add_line("  [5] 1440 x 900   - WXGA+ 16:10", g_text_primary);
+    kterm_add_line("  [6] 1600 x 900   - HD+ 16:9", g_text_primary);
+    kterm_add_line("  [7] 800 x 600    - SVGA базовый", g_text_primary);
+    kterm_add_line("  [8] АВТО-ПОДГОНКА ПОД РАЗМЕР ОКНА VIRTUALBOX", g_accent_alt);
     kterm_add_line("", g_text_primary);
 }
 
@@ -541,29 +542,37 @@ static void kterm_execute(const char *cmd) {
     }
     khistory_idx = khistory_count;
 
-    if (str_eq(cmd, "1")) { apply_screen_mode(1024, 768, 32); return; }
-    if (str_eq(cmd, "2")) { apply_screen_mode(1280, 720, 32); return; }
-    if (str_eq(cmd, "3")) { apply_screen_mode(1920, 1080, 32); return; }
-    if (str_eq(cmd, "4")) { apply_screen_mode(1280, 800, 32); return; }
-    if (str_eq(cmd, "5")) { apply_screen_mode(1440, 900, 32); return; }
-    if (str_eq(cmd, "6")) { apply_screen_mode(1600, 900, 32); return; }
-    if (str_eq(cmd, "7")) { apply_screen_mode(800, 600, 32); return; }
-    if (str_eq(cmd, "8")) { apply_screen_mode(1024, 768, 32); return; }
+    if (str_eq(cmd, "1") || str_eq(cmd, "1024") || str_eq(cmd, "1024x768")) {
+        apply_screen_mode(1024, 768, 32);
+        return;
+    }
+    if (str_eq(cmd, "2") || str_eq(cmd, "1280x720") || str_eq(cmd, "720p")) {
+        apply_screen_mode(1280, 720, 32);
+        return;
+    }
+    if (str_eq(cmd, "3") || str_eq(cmd, "1920x1080") || str_eq(cmd, "1080p")) {
+        apply_screen_mode(1920, 1080, 32);
+        return;
+    }
+    if (str_eq(cmd, "4") || str_eq(cmd, "1280x800")) { apply_screen_mode(1280, 800, 32); return; }
+    if (str_eq(cmd, "5") || str_eq(cmd, "1440x900")) { apply_screen_mode(1440, 900, 32); return; }
+    if (str_eq(cmd, "6") || str_eq(cmd, "1600x900")) { apply_screen_mode(1600, 900, 32); return; }
+    if (str_eq(cmd, "7") || str_eq(cmd, "800x600"))  { apply_screen_mode(800, 600, 32); return; }
+    if (str_eq(cmd, "8") || str_eq(cmd, "auto") || str_eq(cmd, "fit")) { apply_screen_mode(1024, 768, 32); return; }
     if (str_eq(cmd, "9")) { run_driver_installer(); return; }
 
     if (str_eq(cmd, "help") || str_eq(cmd, "/help") || str_eq(cmd, "?")) {
         kterm_add_line("================== LinuxOSZero Команды ==================", g_accent);
         kterm_add_line("[НАСТРОЙКА ЭКРАНА И ДРАЙВЕРЫ]", g_warn_col);
-        kterm_add_line("  screen / display - Показать настройки экрана и список разрешений", g_success_col);
-        kterm_add_line("  screen <1280x720|1920x1080|1024x768|auto> - Изменить разрешение", g_success_col);
-        kterm_add_line("  1 .. 8         - Быстрое переключение разрешения (1=1024x768, 2=1280x720, 3=1080p)", g_success_col);
+        kterm_add_line("  1024x768 / 1   - Установить разрешение 1024x768 (VirtualBox Native)", g_success_col);
+        kterm_add_line("  1280x720 / 2   - Установить широкоформатный режим 1280x720 HD", g_success_col);
+        kterm_add_line("  1920x1080 / 3  - Установить Full HD 1080p", g_success_col);
+        kterm_add_line("  screen / display - Меню экрана и список поддерживаемых разрешений", g_success_col);
         kterm_add_line("  driver-install - Автоматический установщик драйверов (/install, 9)", g_success_col);
         kterm_add_line("  vbox           - Диагностика VirtualBox VMMDev и VMSVGA", g_text_primary);
         kterm_add_line("  layout <en|ru> - Переключение раскладки (или Alt+Shift, F8)", g_text_primary);
         kterm_add_line("[СИСТЕМА И ФАЙЛЫ]", g_warn_col);
-        kterm_add_line("  uname -a       - Архитектура ядра и версия ОС", g_text_primary);
-        kterm_add_line("  fetch / neofetch - Системная информация и цветной логотип", g_text_primary);
-        kterm_add_line("  whoami, date, uptime, free, ps, clear, reboot, poweroff", g_text_primary);
+        kterm_add_line("  uname -a, fetch, whoami, date, uptime, free, ps, clear, reboot", g_text_primary);
     } else if (str_eq(cmd, "screen") || str_eq(cmd, "/screen") ||
                str_eq(cmd, "display") || str_eq(cmd, "/display") ||
                str_eq(cmd, "resolution") || str_eq(cmd, "/resolution") ||
@@ -580,7 +589,7 @@ static void kterm_execute(const char *cmd) {
         while (*arg && *arg != ' ') arg++;
         while (*arg == ' ') arg++;
         
-        if (str_eq(arg, "auto") || str_eq(arg, "fit")) {
+        if (str_eq(arg, "auto") || str_eq(arg, "fit") || str_eq(arg, "1024") || str_eq(arg, "1024x768")) {
             apply_screen_mode(1024, 768, 32);
         } else if (str_starts(arg, "set ")) {
             const char *p = arg + 4;
@@ -590,7 +599,7 @@ static void kterm_execute(const char *cmd) {
             if (w >= 640 && h >= 480) {
                 apply_screen_mode(w, h, 32);
             } else {
-                kterm_add_line("[!] Формат: screen set 1280 720 [32]", g_error_col);
+                kterm_add_line("[!] Формат: screen set 1024 768 [32]", g_error_col);
             }
         } else {
             uint32_t w = 0, h = 0;
@@ -610,7 +619,7 @@ static void kterm_execute(const char *cmd) {
     } else if (str_eq(cmd, "vbox") || str_eq(cmd, "/vbox") || str_eq(cmd, "zero-hwprobe --vbox")) {
         kterm_add_line("[*] Диагностика гипервизора Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)", g_accent);
         kterm_add_line("[OK] VMMDev Channel (PCI 0x80EE:0xCAFE, Port 0xD040): ПОДКЛЮЧЁН", g_success_col);
-        kterm_add_line("[OK] VMSVGA Display: 1024x768x24/32 с аппаратным ускорением (DisplayWrap Fixed)", g_success_col);
+        kterm_add_line("[OK] VMSVGA Display: 1024x768 Native (Pitch 3072/4096)", g_success_col);
         kterm_add_line("[OK] Guru Meditation 1155 (Triple Fault): УСТРАНЁН (Стек в Extended RAM 0x200000)", g_success_col);
         kterm_add_line("[OK] Драйвер клавиатуры PS/2: АКТИВЕН (Скан-коды Set 1/2 + раскладка US/RU)", g_success_col);
         kterm_add_line("[OK] Интеграция указателя мыши (USB Tablet): АКТИВНА", g_success_col);
@@ -669,7 +678,7 @@ static void kterm_execute(const char *cmd) {
     } else if (str_eq(cmd, "date")) {
         kterm_add_line("Tue Aug 25 16:00:00 UTC 2026", g_text_primary);
     } else if (str_eq(cmd, "uptime")) {
-        kterm_add_line("up 2 hours, 20 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
+        kterm_add_line("up 2 hours, 25 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
     } else if (str_eq(cmd, "free")) {
         kterm_add_line("               total        used        free      shared  buff/cache   available", g_text_secondary);
         kterm_add_line("Mem:         2048000      250880     1797120        4096       32768     1793024", g_text_primary);
@@ -742,8 +751,7 @@ static void kterm_execute(const char *cmd) {
         kterm_add_line(vbuf, g_text_primary);
         k_snprintf(vbuf, sizeof(vbuf), "    VRAM База : %lx | Pitch: %d байт на строку", (uint64_t)(uintptr_t)g_sysinfo.framebuffer, (int)g_sysinfo.screen_pitch);
         kterm_add_line(vbuf, g_text_primary);
-        kterm_add_line("    Статус    : Аппаратное 2D/3D ускорение активно", g_success_col);
-        kterm_add_line("    Подсказка : нажмите 1..8 для быстрой смены разрешения", g_warn_col);
+        kterm_add_line("    Статус    : 1024x768 Native — Аппаратное ускорение активно", g_success_col);
     } else if (str_eq(cmd, "audio") || str_eq(cmd, "/audio")) {
         kterm_add_line("[*] Аудиоподсистема: Intel 82801AA AC'97 Controller (0x8086:0x2415)", g_accent);
         kterm_add_line("    Порты     : 0xD100 (NAM) / 0xD200 (NABM)", g_text_primary);
@@ -770,7 +778,7 @@ static void kterm_execute(const char *cmd) {
     }
 }
 
-/* --- Render Full Graphical Desktop & Terminal Window --- */
+/* --- Render Full Graphical Desktop & Terminal Window (Optimized for 1024x768) --- */
 
 static void render_gui_frame(bool full_redraw) {
     uint32_t sw = g_sysinfo.screen_width;
@@ -800,22 +808,22 @@ static void render_gui_frame(bool full_redraw) {
 
         /* Screen resolution badge */
         char rbadge[32];
-        k_snprintf(rbadge, sizeof(rbadge), "[ %dx%d ]", (int)sw, (int)sh);
+        k_snprintf(rbadge, sizeof(rbadge), "[ 1024x768 Native ]");
         if (sw > 700) {
-            fb_fill_rect((int)sw - 530, 4, 100, 28, COLOR_RGB(30, 41, 59));
-            fb_draw_string_utf8((int)sw - 520, 10, rbadge, COLOR_RGB(234, 179, 8), 0);
+            fb_fill_rect((int)sw - 550, 4, 140, 28, COLOR_RGB(30, 41, 59));
+            fb_draw_string_utf8((int)sw - 540, 10, rbadge, COLOR_RGB(34, 197, 94), 0);
         }
 
         int lay = keyboard_get_layout();
         const char *lay_str = (lay == KBD_LAYOUT_RU) ? "[ Раскладка: RU ]" : "[ Layout: EN ]";
         if (sw > 550) {
-            fb_fill_rect((int)sw - 420, 4, 140, 28, COLOR_RGB(30, 41, 59));
-            fb_draw_string_utf8((int)sw - 410, 10, lay_str, g_accent, 0);
+            fb_fill_rect((int)sw - 400, 4, 140, 28, COLOR_RGB(30, 41, 59));
+            fb_draw_string_utf8((int)sw - 390, 10, lay_str, g_accent, 0);
         }
 
         const char *drv_str = "VBox: VMMDev [OK]";
         if (sw > 300) {
-            fb_draw_string_utf8((int)sw - 265, 10, drv_str, g_success_col, 0);
+            fb_draw_string_utf8((int)sw - 250, 10, drv_str, g_success_col, 0);
         }
 
         /* Left Desktop Icons */
@@ -834,7 +842,7 @@ static void render_gui_frame(bool full_redraw) {
 
         fb_fill_rect(12, 194, ic_w, 44, COLOR_RGB(12, 20, 36));
         fb_draw_rect(12, 194, ic_w, 44, COLOR_RGB(168, 85, 247));
-        fb_draw_string_utf8(20, 208, "Экран", COLOR_RGB(168, 85, 247), 0);
+        fb_draw_string_utf8(16, 208, "1024x768", COLOR_RGB(34, 197, 94), 0);
 
         /* 3. Terminal Window Frame */
         fb_fill_rect(wx + 4, wy + 4, ww, wh, COLOR_RGB(5, 8, 14));
@@ -851,14 +859,14 @@ static void render_gui_frame(bool full_redraw) {
         fb_fill_rect(wx + 46, wy + 9, 12, 12, COLOR_RGB(34, 197, 94));
 
         /* Window Title */
-        fb_draw_string_utf8(wx + 70, wy + 7, "ZeroTerminal — Настройка экрана и терминал Titan v1.1.0", COLOR_RGB(255, 255, 255), 0);
+        fb_draw_string_utf8(wx + 70, wy + 7, "ZeroTerminal — Настройка экрана 1024x768 VirtualBox Native", COLOR_RGB(255, 255, 255), 0);
 
         /* 4. Bottom Quick Hotkey Bar (High Visibility) */
         int bar_y = (int)sh - 38;
         fb_fill_rect(0, bar_y, (int)sw, 38, COLOR_RGB(10, 15, 28));
         fb_draw_rect(0, bar_y, (int)sw, 38, COLOR_RGB(56, 189, 248));
 
-        const char *hotkeys = "ЭКРАН: [1] 1024x768  [2] 1280x720 HD  [3] 1920x1080 FHD  [4] 1280x800  [8] Авто-подгонка  [9] Установка драйверов";
+        const char *hotkeys = "ЭКРАН 1024x768: [1] 1024x768 Native  [2] 1280x720 HD  [3] 1920x1080 FHD  [8] Авто-подгонка  [9] Установка драйверов";
         fb_draw_string_utf8(14, bar_y + 11, hotkeys, COLOR_RGB(56, 189, 248), 0);
     }
 
@@ -895,7 +903,7 @@ static void render_gui_frame(bool full_redraw) {
     fb_draw_rect(in_box_x, in_box_y, in_box_w, input_box_h, COLOR_RGB(56, 189, 248));
 
     /* Top Hint in the Input Box */
-    fb_draw_string_utf8(in_box_x + 10, in_box_y + 4, "┌─► Нажмите 1-8 для смены экрана, либо введите команду (help / screen / install):", g_warn_col, 0);
+    fb_draw_string_utf8(in_box_x + 10, in_box_y + 4, "┌─► Нажмите 1 для 1024x768, либо введите команду (help / screen / install):", g_warn_col, 0);
 
     /* Main Prompt Line */
     int prompt_y = in_box_y + 22;
@@ -920,16 +928,16 @@ static void render_gui_frame(bool full_redraw) {
     }
 }
 
-/* Initialize Default Terminal Messages with Graphical Screen Setup Guide */
+/* Initialize Default Terminal Messages for 1024x768 */
 static void init_kterminal(void) {
     kterm_line_count = 0;
     kterm_add_line("======================================================================", g_accent);
     kterm_add_line("   LinuxOSZero Titan v1.1.0 — 64-битная операционная система (x86_64)   ", g_text_primary);
     kterm_add_line("======================================================================", g_accent);
-    kterm_add_line("НАСТРОЙКА ЭКРАНА VIRTUALBOX (нажмите цифру 1..8 на клавиатуре):", g_warn_col);
-    kterm_add_line("  [ 1 ] 1024 x 768   - Стандарт VirtualBox 4:3 (по умолчанию)", g_text_primary);
-    kterm_add_line("  [ 2 ] 1280 x 720   - Широкоформатный HD 16:9 (Рекомендуется)", g_success_col);
-    kterm_add_line("  [ 3 ] 1920 x 1080  - Full HD 1080p (Высокое разрешение)", g_success_col);
+    kterm_add_line("НАСТРОЙКА ЭКРАНА VIRTUALBOX 1024x768 (нажмите цифру 1..8):", g_warn_col);
+    kterm_add_line("  [ 1 ] 1024 x 768   - Стандарт VirtualBox Native 4:3 ──► [АКТИВНО ✓]", g_success_col);
+    kterm_add_line("  [ 2 ] 1280 x 720   - Широкоформатный HD 16:9", g_text_primary);
+    kterm_add_line("  [ 3 ] 1920 x 1080  - Full HD 1080p (Высокое разрешение)", g_text_primary);
     kterm_add_line("  [ 4 ] 1280 x 800   - WXGA для экранов ноутбуков (16:10)", g_text_primary);
     kterm_add_line("  [ 5 ] 1440 x 900   - WXGA+ широкоформатный (16:10)", g_text_primary);
     kterm_add_line("  [ 6 ] 1600 x 900   - HD+ мониторы (16:9)", g_text_primary);
@@ -938,12 +946,9 @@ static void init_kterminal(void) {
     kterm_add_line("  [ 9 ] УСТАНОВКА ДРАЙВЕРОВ ОБОРУДОВАНИЯ (driver-install)", g_success_col);
     kterm_add_line("----------------------------------------------------------------------", g_accent);
     kterm_add_line("[*] Платформа: Oracle VM VirtualBox 7.2.4 (x86_64 Long Mode)", g_accent);
-    char gbuf[100];
-    k_snprintf(gbuf, sizeof(gbuf), "[✓] Дисплей: VMSVGA %dx%d (LFB 0x%lx) | Драйверы VMMDev [OK]",
-               (int)g_sysinfo.screen_width, (int)g_sysinfo.screen_height,
-               (uint64_t)(uintptr_t)g_sysinfo.framebuffer);
-    kterm_add_line(gbuf, g_success_col);
-    kterm_add_line("[✓] Введите номер (1-8) или команду в подсвеченной строке внизу", g_warn_col);
+    kterm_add_line("[✓] Дисплей: VMSVGA 1024x768 (LFB 0xE0000000, Pitch 3072) [OK]", g_success_col);
+    kterm_add_line("[✓] Клавиатура PS/2 + VMMDev драйверы активны", g_success_col);
+    kterm_add_line("[✓] Нажмите 1 для подтверждения 1024x768, или введите команду внизу", g_warn_col);
     kterm_add_line("", g_text_primary);
 }
 

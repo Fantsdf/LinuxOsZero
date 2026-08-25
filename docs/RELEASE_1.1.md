@@ -31,7 +31,7 @@
 
 ### 🔒 Контрольная сумма SHA-256:
 ```text
-34ae8c4af2a2678646bd3bb3798610b3ac594a3797e9155552eadbb208c9f8e8  LinuxZero.iso
+f820eb06053a2da8e5bf9fce2ada392e8846f5799afa5cda76687f712dc5a539  LinuxZero.iso
 ```
 
 ---
