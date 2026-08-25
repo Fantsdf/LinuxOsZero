@@ -66,6 +66,42 @@ pm32:
     mov fs, ax
     mov gs, ax
 
+    /* ---- Detect 64-bit (long mode) support via CPUID ----
+       If the guest is configured as 32-bit only (VirtualBox: Enable64bit=0,
+       Long Mode=0), enabling PAE below raises #GP -> double/triple fault.
+       Check CPUID 0x80000001 bit 29 (LM) first and print a clear message
+       instead of crashing. */
+    mov eax, 0x80000000
+    cpuid
+    cmp eax, 0x80000001
+    jb .no_longmode
+    mov eax, 0x80000001
+    cpuid
+    test edx, 0x20000000      /* bit 29 = LM (long mode) */
+    jnz .longmode_ok
+
+.no_longmode:
+    /* Write "REQUIRES 64-BIT CPU / enable 64-bit in VirtualBox" to VGA text
+       buffer at 0xB8000 (row 10, columns 0..68), cyan on black. */
+    mov edi, 0xB8000 + 10 * 160
+    mov eax, 0x0B000000
+    mov byte ptr [edi], 'L'
+    mov byte ptr [edi+1], 0x0B
+    lea esi, [msg_no64]        /* DS=0x10 flat, so esi = physical addr of msg */
+    cld
+.next_c:
+    lodsb
+    test al, al
+    jz .halt64
+    mov ah, 0x0B
+    mov word ptr [edi], ax
+    add edi, 2
+    jmp .next_c
+.halt64:
+    hlt
+    jmp .halt64
+
+.longmode_ok:
     /* ---- Zero 0x9000..0xF000 (24 KB = 6 x 4 KiB tables) ---- */
     mov edi, 0x9000
     xor eax, eax
@@ -169,3 +205,10 @@ gdt_end:
 gdt_desc:
     .word gdt_end - gdt - 1
     .long 0x10000 + (gdt - _start)   /* linear base = physical address of GDT */
+
+/* Clear on-screen message shown when the guest CPU is not 64-bit capable
+   (e.g. VirtualBox VM created as 32-bit "Other", Enable64bit=0, Long Mode=0).
+   Reached via lea in pm32; DS=0x10 flat so the VMA equals the physical
+   address where the kernel is loaded (0x10000+). */
+msg_no64:
+    .asciz "LinuxOSZero needs a 64-bit CPU. Enable 64-bit in VirtualBox: create the VM as 'Other Linux (64-bit)'. Booting failed."
