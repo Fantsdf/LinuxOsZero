@@ -109,7 +109,8 @@ void pci_scan_all_buses(void) {
     pci_device_count = 0;
     pci_device_list = NULL;
 
-    for (uint16_t bus = 0; bus < 256; bus++) {
+    /* Scan primary PCI Bus 0 (up to 32 slots, 8 functions) */
+    for (uint16_t bus = 0; bus < 8; bus++) {
         for (uint8_t slot = 0; slot < 32; slot++) {
             for (uint8_t func = 0; func < 8; func++) {
                 uint16_t vendor_id = pci_read_config_word((uint8_t)bus, slot, func, 0x00);

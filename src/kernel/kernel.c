@@ -44,8 +44,8 @@ static char kcmd_history[KTERM_HISTORY_MAX][KTERM_LINE_LEN];
 static int khistory_count = 0;
 static int khistory_idx = -1;
 
-static uint32_t g_win_bg = 0xFF0F172A;         /* Dark slate window background */
-static uint32_t g_win_title_bg = 0xFF1E293B;   /* Title bar background */
+static uint32_t g_win_bg = 0xFF0A0F1A;         /* Charcoal dark blue */
+static uint32_t g_win_title_bg = 0xFF1E293B;   /* Slate title bar */
 static uint32_t g_accent = 0xFF38BDF8;         /* Bright sky blue */
 static uint32_t g_text_primary = 0xFFF8FAFC;   /* Crisp white */
 static uint32_t g_text_secondary = 0xFF94A3B8; /* Slate grey */
@@ -350,9 +350,9 @@ static void kterm_execute(const char *cmd) {
     } else if (str_eq(cmd, "whoami")) {
         kterm_add_line("user (UID 1000, GID 1000, Группы: wheel, video, audio, vboxsf, sudo)", g_text_primary);
     } else if (str_eq(cmd, "date")) {
-        kterm_add_line("Tue Aug 25 13:25:00 UTC 2026", g_text_primary);
+        kterm_add_line("Tue Aug 25 13:35:00 UTC 2026", g_text_primary);
     } else if (str_eq(cmd, "uptime")) {
-        kterm_add_line("up 1 hour, 55 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
+        kterm_add_line("up 1 hour, 58 mins, 1 user, load average: 0.02, 0.01, 0.00", g_text_primary);
     } else if (str_eq(cmd, "free")) {
         kterm_add_line("               total        used        free      shared  buff/cache   available", g_text_secondary);
         kterm_add_line("Mem:         2048000      250880     1797120        4096       32768     1793024", g_text_primary);
@@ -402,7 +402,7 @@ static void kterm_execute(const char *cmd) {
         g_text_secondary = 0xFF64748B;
         kterm_add_line("[OK] Установлена светлая тема оформления", g_success_col);
     } else if (str_eq(cmd, "theme dark") || str_eq(cmd, "/theme dark") || str_eq(cmd, "theme")) {
-        g_win_bg = 0xFF0F172A;
+        g_win_bg = 0xFF0A0F1A;
         g_win_title_bg = 0xFF1E293B;
         g_accent = 0xFF38BDF8;
         g_text_primary = 0xFFF8FAFC;
@@ -451,32 +451,45 @@ static void render_gui_frame(void) {
     uint32_t sw = g_sysinfo.screen_width;
     uint32_t sh = g_sysinfo.screen_height;
 
-    /* 1. Desktop Wallpaper Background: Fast solid fill */
-    fb_fill_rect(0, 0, (int)sw, (int)sh, COLOR_RGB(15, 23, 42));
+    /* 1. Desktop Wallpaper Background: Rich Deep Blue Wallpaper */
+    fb_fill_rect(0, 0, (int)sw, (int)sh, COLOR_RGB(18, 38, 70));
 
     /* 2. Top Taskbar / Status Panel (Height: 36px) */
-    fb_fill_rect(0, 0, (int)sw, 36, COLOR_RGB(10, 15, 28));
-    fb_draw_rect(0, 0, (int)sw, 36, COLOR_RGB(51, 65, 85));
+    fb_fill_rect(0, 0, (int)sw, 36, COLOR_RGB(12, 20, 36));
+    fb_draw_rect(0, 0, (int)sw, 36, COLOR_RGB(56, 189, 248));
 
     /* Start Button */
-    fb_fill_rect(8, 5, 115, 26, COLOR_RGB(14, 165, 233));
-    fb_draw_string(18, 10, "[ ZERO OS ]", COLOR_RGB(10, 15, 28), 0);
+    fb_fill_rect(6, 4, 120, 28, COLOR_RGB(14, 165, 233));
+    fb_draw_string(16, 10, "[ ZERO OS ]", COLOR_RGB(10, 15, 28), 0);
 
     /* System Status Indicators */
-    fb_draw_string(135, 10, "LinuxOSZero Titan v1.1.0 (x86_64)", g_text_primary, 0);
+    fb_draw_string(140, 10, "LinuxOSZero Titan v1.1.0 (x86_64)", COLOR_RGB(255, 255, 255), 0);
 
     int lay = keyboard_get_layout();
     const char *lay_str = (lay == KBD_LAYOUT_RU) ? "[ Раскладка: RU ]" : "[ Layout: EN ]";
-    fb_fill_rect((int)sw - 420, 5, 140, 26, COLOR_RGB(30, 41, 59));
+    fb_fill_rect((int)sw - 420, 4, 140, 28, COLOR_RGB(30, 41, 59));
     fb_draw_string((int)sw - 410, 10, lay_str, g_accent, 0);
 
     const char *drv_str = "VBox: VMMDev + VMSVGA [OK]";
     fb_draw_string((int)sw - 265, 10, drv_str, g_success_col, 0);
 
-    /* 3. Terminal Window Frame (Centered: x=32, y=52, w=960, h=690) */
-    int wx = 32;
-    int wy = 52;
-    int ww = (int)sw - 64;
+    /* Left Desktop Icons */
+    fb_fill_rect(16, 50, 88, 54, COLOR_RGB(12, 20, 36));
+    fb_draw_rect(16, 50, 88, 54, COLOR_RGB(56, 189, 248));
+    fb_draw_string(24, 68, "Терминал", COLOR_RGB(255, 255, 255), 0);
+
+    fb_fill_rect(16, 114, 88, 54, COLOR_RGB(12, 20, 36));
+    fb_draw_rect(16, 114, 88, 54, COLOR_RGB(34, 197, 94));
+    fb_draw_string(20, 132, "Установщик", COLOR_RGB(34, 197, 94), 0);
+
+    fb_fill_rect(16, 178, 88, 54, COLOR_RGB(12, 20, 36));
+    fb_draw_rect(16, 178, 88, 54, COLOR_RGB(234, 179, 8));
+    fb_draw_string(20, 196, "Драйверы", COLOR_RGB(234, 179, 8), 0);
+
+    /* 3. Terminal Window Frame (Centered: x=120, y=50, w=874, h=690) */
+    int wx = 120;
+    int wy = 50;
+    int ww = (int)sw - 140;
     int wh = (int)sh - 70;
 
     /* Window Shadow & Background */
@@ -494,7 +507,7 @@ static void render_gui_frame(void) {
     fb_fill_rect(wx + 46, wy + 9, 12, 12, COLOR_RGB(34, 197, 94));
 
     /* Window Title */
-    fb_draw_string(wx + 70, wy + 7, "ZeroTerminal — user@linuxoszero (x86_64 Long Mode)", g_text_primary, 0);
+    fb_draw_string(wx + 70, wy + 7, "ZeroTerminal — user@linuxoszero (x86_64 Titan Edition)", COLOR_RGB(255, 255, 255), 0);
 
     /* 4. Terminal Output Buffer Rendering */
     int pad_x = wx + 14;
