@@ -28,25 +28,20 @@ echo "[+] Assembling 64-bit ISR Stubs (src/kernel/isr.s)..."
 as --64 src/kernel/isr.s -o build/isr.o
 
 # 4. Compile Native 64-bit Kernel Core (src/kernel/* & drivers)
+# Note: -mno-red-zone is critical for kernel interrupt safety.
+# -mno-sse -mno-sse2 prevents compiler vectorization in early kernel code.
+KERN_CFLAGS="-c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector -mno-red-zone -mno-mmx -mno-sse -mno-sse2"
+
 echo "[+] Compiling Native 64-bit Kernel Core (src/kernel/*)..."
-gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
-    src/kernel/kernel.c -o build/kernel.o
-gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
-    src/kernel/gdt.c -o build/gdt.o
-gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
-    src/kernel/idt.c -o build/idt.o
-gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
-    src/kernel/keyboard.c -o build/keyboard.o
-gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
-    src/kernel/pci.c -o build/pci.o
-gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
-    src/kernel/vga.c -o build/vga.o
-gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
-    src/drivers/vboxguest.c -o build/vboxguest.o
-gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
-    src/drivers/vboxvideo.c -o build/vboxvideo.o
-gcc -c -O2 -Wall -Wextra -ffreestanding -m64 -fno-pie -fno-stack-protector \
-    src/boot/stage2.c -o build/stage2.o
+gcc $KERN_CFLAGS src/kernel/kernel.c -o build/kernel.o
+gcc $KERN_CFLAGS src/kernel/gdt.c -o build/gdt.o
+gcc $KERN_CFLAGS src/kernel/idt.c -o build/idt.o
+gcc $KERN_CFLAGS src/kernel/keyboard.c -o build/keyboard.o
+gcc $KERN_CFLAGS src/kernel/pci.c -o build/pci.o
+gcc $KERN_CFLAGS src/kernel/vga.c -o build/vga.o
+gcc $KERN_CFLAGS src/drivers/vboxguest.c -o build/vboxguest.o
+gcc $KERN_CFLAGS src/drivers/vboxvideo.c -o build/vboxvideo.o
+gcc $KERN_CFLAGS src/boot/stage2.c -o build/stage2.o
 
 # Link Stage 2 Kernel Binary in 64-bit format
 ld -m elf_x86_64 --oformat binary -Ttext 0x10000 \

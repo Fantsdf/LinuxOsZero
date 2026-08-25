@@ -35,8 +35,8 @@ typedef struct {
     uint64_t ss;
 } __attribute__((packed)) interrupt_frame_t;
 
-static struct idt_entry idt[256];
-static struct idt_ptr ip;
+static struct idt_entry idt[256] __attribute__((aligned(16)));
+static struct idt_ptr ip __attribute__((aligned(16)));
 
 extern void *isr_stub_table[256];
 
@@ -64,8 +64,16 @@ static void idt_set_gate(uint8_t num, uint64_t base, uint16_t sel, uint8_t flags
 }
 
 void idt_init(void) {
-    ip.limit = (uint16_t)(sizeof(struct idt_entry) * 256 - 1);
+    ip.limit = (uint16_t)(sizeof(idt) - 1);
     ip.base = (uint64_t)&idt;
+
+    /* Populate all 256 gates FIRST so every vector has a valid 64-bit handler */
+    for (int i = 0; i < 256; i++) {
+        idt_set_gate((uint8_t)i, (uint64_t)isr_stub_table[i], 0x18, 0x8E);
+    }
+
+    /* Load 64-bit IDTR immediately so IDT is active before PIC remapping */
+    __asm__ volatile ("lidt (%0)" : : "r"(&ip) : "memory");
 
     /* Remap Master and Slave 8259 PIC to vectors 0x20..0x2F */
     outb(0x20, 0x11);
@@ -88,11 +96,4 @@ void idt_init(void) {
     /* Unmask IRQ 1 (Keyboard) and IRQ 2 (Cascade) on Master PIC, mask all on Slave */
     outb(0x21, 0xFD); /* 11111101b - IRQ1 unmasked */
     outb(0xA1, 0xFF); /* Mask all on Slave PIC */
-
-    /* Set all 256 IDT gates pointing to their 64-bit assembly stubs (CS=0x18) */
-    for (int i = 0; i < 256; i++) {
-        idt_set_gate((uint8_t)i, (uint64_t)isr_stub_table[i], 0x18, 0x8E);
-    }
-
-    __asm__ volatile ("lidt (%0)" : : "r"(&ip) : "memory");
 }

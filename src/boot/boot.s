@@ -104,8 +104,8 @@ boot_code:
     cld
     rep movsb
 
-    /* ---- Restore DS for messaging and jump to the trampoline ---- */
-    mov ax, 0x1000
+    /* ---- Restore DS=0 for messaging and jump to the trampoline ---- */
+    xor ax, ax
     mov ds, ax
     mov si, offset msg_ok
     call print_str

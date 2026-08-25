@@ -161,9 +161,9 @@ pm32:
     add edi, 8
     loop .fill_pd3
 
-    /* ---- Enable PAE in CR4 (bit 5) ---- */
+    /* ---- Enable PAE (bit 5), OSFXSR (bit 9), OSXMMEXCPT (bit 10) in CR4 ---- */
     mov eax, cr4
-    or eax, 0x20
+    or eax, 0x620             /* 0x20 (PAE) | 0x200 (OSFXSR) | 0x400 (OSXMMEXCPT) */
     mov cr4, eax
 
     /* ---- Load PML4 physical base address into CR3 ---- */
@@ -176,9 +176,10 @@ pm32:
     or eax, 0x100
     wrmsr
 
-    /* ---- Enable Paging (CR0.PG = bit 31, CR0.PE = bit 0) ---- */
+    /* ---- Enable Paging (CR0.PG = bit 31, CR0.PE = bit 0, CR0.MP = bit 1, CR0.NE = bit 5, clear EM bit 2) ---- */
     mov eax, cr0
-    or eax, 0x80000001
+    and eax, 0xFFFFFFFB       /* Clear EM (bit 2) */
+    or eax, 0x80000023        /* Set PG (bit 31), NE (bit 5), MP (bit 1), PE (bit 0) */
     mov cr0, eax
 
     /* Far jump to 64-bit code: EIP = 0x10000 + (pm64 - _start), CS = 0x18. */
